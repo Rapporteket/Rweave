@@ -1,0 +1,408 @@
+
+\documentclass[presentation,xcolor=pdftex,dvipsnames,table]{beamer}
+\usetheme{Hannover}
+\usecolortheme{seagull}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english, norsk]{babel}
+\usepackage[absolute,overlay]{textpos}
+\usepackage{xspace}
+\usepackage{booktabs}
+\usepackage{rotating}
+
+\usepackage{Sweave}
+
+
+<<echo = FALSE , results = tex>>=
+require(yaml)
+
+conf <- yaml.load_file('../dbConfig.yml')
+## reshID <- 2 ## for local testing
+
+printname <- unlist( conf [[paste("noric" , reshID , sep = "")]]["disp"])
+
+cat("\\title{NORIC" , printname , "\\\\Stentbruk}\n\n")
+cat("\\date{" , date() , "}\n\n")
+@ 
+
+\begin{document}
+
+\maketitle
+
+
+<<echo = FALSE , eval = TRUE>>=
+require(xtable)          # LaTeX tables
+require(car)             # recoding variables
+
+require(RColorBrewer)    # intellingent colour palettes
+
+brew <- function(
+    N = 3 ,
+    alpha = "AA" ) paste(
+        brewer.pal(
+            n = N , 
+            name = if(N<9) "Dark2" else "Set3" ) ,
+        alpha ,
+        sep = "")
+
+
+require(ggplot2)
+
+## conf <- yaml::yaml.load_file('../dbConfig.yml') ; reshID <- 2
+require(RMySQL)          # accessing the database
+
+con <- dbConnect( dbDriver("MySQL") ,
+  dbname = unlist( conf[[paste("noric" , reshID , sep = "")]]["name"]) ,
+  host = unlist( conf[[paste("noric" , reshID , sep = "")]]["host"]) ,
+  user = unlist( conf[[paste("noric" , reshID , sep = "")]]["user"]) ,
+  password = unlist( conf[[paste("noric" , reshID , sep = "")]]["pass"]) )
+
+# ensure utf8 encoding
+query <- "SET NAMES utf8;"
+tmp <- dbGetQuery( con, query )
+
+stent.query <- "
+SELECT
+   S.MCEID,
+   P.GENDER,
+   R.INDIKATION,
+   R.INTERDAT,
+   R.HEIGHT,
+   R.WEIGHT,
+   S.SEGMENT,
+   S.STENT,
+   ST.SID,
+   ST.STENTNAMN,
+   ST.DES,
+   S.BALLONGLANGD,
+   S.DEBDIAM,
+   S.DIAM,
+   S.EFTERDILATATION,
+   S.FRAMGANG,
+   S.GRAFT,
+   S.LAKEMEDELSBALLONG,
+   S.MAXTRYCKVIDDEB,
+   S.MAXTRYCKVIDSTENT,
+   S.OCKL,
+   S.PROCTYP,
+   S.SEGMENT_STENT_TROMBOSE_TYPE,
+   S.STENOSGRUPP,
+   S.STENOSKLASS,
+   S.STENOSTYP,
+   S.STENTLANGD,
+   S.STENTSLUT,
+   S.UPPBLASNINGSTIDDEB
+FROM segment S
+   INNER  JOIN stent ST ON S.STENT=ST.SID
+   INNER JOIN regangio R ON S.MCEID=R.MCEID
+   INNER JOIN mce M ON S.MCEID=M.MCEID
+   INNER JOIN patient P ON M.PATIENT_ID=P.ID;"
+
+dat.stent <- dbGetQuery( con , stent.query )
+
+mce.query <- "
+SELECT
+   R.MCEID ,
+   COUNT(1) AS Nstents ,
+   R.INTERDAT
+FROM
+   regangio R
+   INNER JOIN segment S on R.MCEID=S.MCEID
+GROUP BY MCEID;"
+
+dat.mce <- dbGetQuery( con , mce.query)
+
+con <- dbDisconnect(con)
+con <- dbUnloadDriver(dbDriver("MySQL"))
+
+dat.stent$GENDER <- factor(as.numeric(dat.stent$GENDER==1))
+
+dat.stent$DES <- factor(
+    x = dat.stent$DES ,
+    labels = c("BMS" , "DES" , "BVS"))
+
+   # simplify Xience stent names
+dat.stent$STENTNAMN2 <- gsub(
+    pattern = "Xience.+" ,
+    replacement = "Xience" ,
+    x = dat.stent$STENTNAMN)
+
+dat.stent$Indikasjon <- recode( dat.stent$INDIKATION ,"
+1='SAP';
+2='UAP';
+3='NSTEMI';
+4:6='STEMI';
+NA=NA;
+else='Annet'
+")
+
+dat.stent$Indikasjon <- factor( dat.stent$Indikasjon , levels = c(
+'SAP',
+'UAP',
+'NSTEMI',
+'STEMI',
+'Annet'))
+
+dat.stent$INTERDAT <- as.Date(
+    x = dat.stent$INTERDAT ,
+    format = "%Y-%m-%d")
+
+dat.mce$INTERDAT <- as.Date(
+    x = dat.mce$INTERDAT ,
+    format = "%Y-%m-%d")
+
+
+dat.stent$Month <- as.numeric(
+    format( 
+        x = dat.stent$INTERDAT , 
+        format = "%m" ))
+
+dat.stent$Quarter <- as.numeric(
+    cut(
+        x = dat.stent$Month ,
+        breaks = 0:4*3))
+
+dat.stent$Year <- as.numeric(
+    format( 
+        x = dat.stent$INTERDAT ,
+        format = "%y" ))
+
+dat.stent$YearMonth <- factor(
+    format(
+        x = dat.stent$INTERDAT ,
+        format = "%y-%m"))
+
+dat.stent$YearQuarter <- factor(
+    paste(
+        dat.stent$Year ,
+        dat.stent$Quarter ,
+        sep = "/"))
+
+                       
+dat.mce$Month <- as.numeric(
+    format( 
+        x = dat.mce$INTERDAT , 
+        format = "%m" ))
+
+dat.mce$Quarter <- as.numeric(
+    cut(
+        x = dat.mce$Month ,
+        breaks = 0:4*3))
+                         
+dat.mce$Year <- as.numeric(
+    format( 
+        x = dat.mce$INTERDAT ,
+        format = "%y" ))
+
+dat.mce$YearMonth <- factor(
+    format(
+        x = dat.mce$INTERDAT ,
+        format = "%y-%m"))
+
+dat.mce$YearQuarter <- factor(
+    paste(
+        dat.mce$Year ,
+        dat.mce$Quarter ,
+        sep = "/"))
+
+@ 
+
+
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Antall stenter etter type og måned}
+  
+<<echo=FALSE , results = tex>>=
+
+pdf(
+    file = "N_stents_DES_YearMonth.pdf" ,
+    width = 12 ,
+    height = 8 ,
+    pointsize = 12)
+
+op <- par(
+    mfcol = c (1,1) ,
+    xpd = NA ,
+    mar = c(5.1,4.1,4.1,13.1) ,
+    bg = "#EEEEEE")
+
+pal <- brew( length(levels(dat.stent$DES)))
+
+barplot(
+    xtabs(
+        formula = ~ DES + YearMonth ,
+        data = dat.stent ) , 
+    las = 1 ,
+    xlab = "Måned" ,
+    ylab = "Antall" ,
+    col = pal ,
+    space = 0.2 ,
+    border = FALSE)
+
+legend(
+    "right" ,
+    inset = -.28 ,
+    bty = "n" ,
+    horiz = FALSE ,
+    fill = pal,
+    legend = levels(dat.stent$DES) ,
+    cex = 1)
+
+par(op)
+
+dev.null <- dev.off()
+@
+
+\includegraphics[width=0.95\textwidth]{N_stents_DES_YearMonth.pdf}
+\end{figure}
+\end{frame}
+
+
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins(
+            xtabs(
+                formula = ~ YearMonth + DES ,
+                data = dat.stent )) ,
+        digits = 0 , caption = "Antall stenter etter type og måned") ,
+    booktabs = TRUE ,
+    rotate.colnames = FALSE)
+@
+\end{tiny}
+\end{frame}
+
+
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        100 * prop.table(
+            addmargins(
+                xtabs(
+                    formula = ~ YearMonth + DES ,
+                    data = dat.stent ) ,
+                margin = 1 ) ,
+            margin = 1) ,
+        digits = 1 , caption = "Prosent stenttyper etter måned") ,
+    booktabs = TRUE ,
+    rotate.colnames = FALSE)
+@
+\end{tiny}
+\end{frame}
+
+
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+    100*prop.table(
+        addmargins(
+            xtabs(
+                formula = ~ YearMonth + Indikasjon + DES,
+                data = dat.stent ) ,
+            margin = 1) ,
+        margin = 1:2)[,,2] ,
+        digits = 1 , caption = "Prosent andel DES per indikasjon og måned") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Antall stenter per prosedyre}
+  
+<<echo = FALSE , eval = TRUE>>=
+pdf(
+    file = "Histogram_Nstent_per_Prosedyre.pdf" ,
+    width = 12 , 
+    height = 8 )
+
+op <- par(
+    las = 1 ,
+    mar = c(5 , 6 , 1 , 1 )+0.1)
+
+hist( 
+    x = dat.mce$Nstents ,
+    include.lowest = TRUE ,
+    col = "#B3B3B3AA" ,
+    right = FALSE ,
+    main = "" ,
+    ylab = "Antall prosedyrer" ,
+    xlab = "Antall stenter per prosedyre")
+
+S <- summary(dat.mce$Nstents)
+legend(
+    "topright" ,
+    bty = "n" ,
+    legend = paste(attr(S,"names"), ": " , S , sep = ""))
+
+par(op)
+
+dev.null <- dev.off()
+@ 
+
+\includegraphics[width=0.95\textwidth]{Histogram_Nstent_per_Prosedyre.pdf}
+\end{figure}
+\end{frame}
+
+
+
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins(
+            xtabs(
+                formula = ~ STENTNAMN2 +YearQuarter ,
+                data = dat.stent )) ,
+        digits = 0 , caption = "Antall stenter etter merke per kvartal") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        100 * prop.table(
+            addmargins(
+                xtabs(
+                    formula = ~ STENTNAMN2 + YearQuarter ,
+                    data = dat.stent ) ,
+                margin = 2 ) ,
+            margin = 2) ,
+        digits = 1 , caption = "Prosent stentermerke per kvartal") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+\end{document}

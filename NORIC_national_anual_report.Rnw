@@ -1,0 +1,619 @@
+
+\documentclass[norsk, a4paper, twocolumn]{report}
+
+\usepackage[utf8x]{inputenc}
+\usepackage{babel}
+\usepackage{authblk}
+\usepackage{longtable}
+\usepackage{multicol}
+\usepackage{color}
+\usepackage{wasysym}
+\usepackage[raggedright]{titlesec}
+\usepackage{color,hyperref}
+
+% added by reinhard.seifert@helse-bergen.no for NORIC:
+\usepackage{booktabs}
+\usepackage{rotating}
+\usepackage{Sweave}
+
+
+
+
+<<echo = FALSE , results = tex>>=
+
+@ 
+
+
+<<echo = FALSE , eval = TRUE>>=
+
+library(car)             # recoding variables
+library(xtable)          # LaTeX tables
+library(RColorBrewer)    # intellingent colour palettes
+brew <- function(
+    N = 3 ,
+    alpha = "AA" ) paste(
+        brewer.pal(
+            n = N , 
+            name = if(N<9) "Dark2" else "Set3" ) ,
+        alpha ,
+        sep = "")
+
+## reshID <- 1 ## for local testing
+
+reshIDBergen <- 102966
+reshIDStavanger <- 105502
+reshIDSoerlandet <- 114150
+reshIDRikshospitalet <- 700422
+reshIDUllevaal <- 109880
+reshIDFeiring <- 106944
+reshIDStOlav <- 104284
+reshIDUNN <- 101619
+
+library(RMySQL)          # accessing the database
+
+GetDataLastYear <- function(reshID){
+    conf <- yaml::yaml.load_file('../dbConfig.yml')
+    con <- dbConnect(
+        dbDriver("MySQL") ,
+        dbname = unlist( conf[[paste("noric" , reshID , sep = "")]]["name"]) ,
+        host = unlist( conf[[paste("noric" , reshID , sep = "")]]["host"]) ,
+        user = unlist( conf[[paste("noric" , reshID , sep = "")]]["user"]) ,
+        password = unlist( conf[[paste("noric" , reshID , sep = "")]]["pass"]) )
+    query <- "SELECT M.MCEID, M.PARENT_MCEID, M.INTERVENTION_TYPE, M.MCETYPE, R.INTERDAT, R.JOURTID, R.REGTYP, R.INDIKATION, R.FYND, R.DIATRYCK, R.DIADOP, R.DIAIVUS, R.PRIMBES, I.HOSP_ADMISSIONDATE, I.TRANSFERREDPATIENT, I.TRANSFERREDFROM, H.NAME AS TRANSFERREDFROMchar, I.REFERRING_HOSP_ADMISSIONDATE, I.KILLIPKLASS, I.SYMPTOM_ONSET_DATE, I.SYMPTOM_ONSET_TIME, I.SYMPTOM_ONSET_MISSING, I.PREHOSPITAL_ECG_DATE, I.PREHOSPITAL_ECG_TIME, I.PREHOSPITAL_ECG_MISSING, I.THROMB_GIVEN_DATE, I.THROMB_GIVEN_TIME, I.ADMISSION_ER_DATE, I.ADMISSION_ER_TIME FROM mce M INNER JOIN regangio R ON M.MCEID=R.MCEID INNER JOIN initialcare I ON M.MCEID=I.MCEID LEFT JOIN hospital H ON I.TRANSFERREDFROM=H.ID WHERE YEAR(R.INTERDAT)=YEAR(CURRENT_DATE)-1;"
+    dat <- dbGetQuery( con , query )
+    con <- dbDisconnect(con)
+    con <- dbUnloadDriver(dbDriver("MySQL"))
+    dat$SHUS <- unlist( conf [[paste("noric" , reshID , sep = "")]]["disp"])
+    return(dat)}
+
+dat <- rbind(
+    GetDataLastYear(1) ,
+    GetDataLastYear(2))
+
+   ## MCETYPE = 1/2/3 -> Hendelsestype 1) Planlagt, 2) Akutt, 3) Subakutt
+dat$Hastegrad <- addNA( factor( addNA(dat$MCETYPE) , exclude = NULL , labels = c('Planlagt','Akutt','Subakutt')))
+
+
+dat$Vakttid <- addNA( factor( dat$JOURTID , labels =  c(
+'Planlagt på dagtid',
+'Akuttilfelle på dagtid',
+'Akutfall på vakttid',
+'Subakuttilfelle på dagtid',
+'Subakuttilfelle på vakttid')))
+
+
+dat$Indikasjon <- recode( dat$INDIKATION ,"
+1='SAP';
+2='UAP';
+3='NSTEMI';
+4:6='STEMI';
+NA=NA;
+else='Annet'
+")
+
+dat$Indikasjon <- addNA( factor( dat$Indikasjon , levels = c(
+'SAP',
+'UAP',
+'NSTEMI',
+'STEMI',
+'Annet')))
+
+
+dat$Regtyp <- recode( dat$REGTYP ,"
+1='Angio';
+2='PCI';
+3='Angio+PCI';
+NA=NA;
+")
+
+dat$Regtyp <- addNA( factor( dat$Regtyp , levels = c(
+'Angio',
+'PCI',
+'Angio+PCI')))
+
+
+dat$PrimaerBeslutning2 <- recode( dat$PRIMBES ,"
+1 = 'Ingen behandling';
+2 = 'Fortsatt medisinsk behandling';
+3 = 'Fortsatt utredning';
+4 = 'Klaffeoperasjon';
+5 = 'ACB-operasjon';
+6 = 'Klaffe- + ACB-operasjon';
+7 = 'PCI + ACB-operasjon';
+8 = 'PCI elektiv';
+9 = 'PCI ad hoc';
+10 = 'Henvisning til annet sykehus';
+11 = 'Annet operativt inngrep';
+NA = NA")
+
+
+dat$PrimaerBeslutning2 <- addNA( factor( dat$PrimaerBeslutning2 , levels = c(
+'Ingen behandling',
+'Fortsatt medisinsk behandling',
+'Fortsatt utredning',
+'Klaffeoperasjon',
+'ACB-operasjon',
+'Klaffe- + ACB-operasjon',
+'PCI+ACB-operasjon',
+'PCI elektiv',
+'PCI ad hoc',
+'Henvisning til annet sykehus',
+'Annet operativt inngrep')))
+
+
+
+dat$PrimaerBeslutning <- recode( dat$PRIMBES ,"
+ 1 = 'Ingen behandling';
+ 2 = 'Fortsatt medisinsk behandling';
+ 3:6 = 'Diskusjon/uavklart';
+ 8  = 'PCI elektiv';
+ 9  = 'PCI ad hoc';
+ NA = NA;
+ c(7,10,11) = 'Annet'
+")
+
+dat$PrimaerBeslutning <- addNA( factor( dat$PrimaerBeslutning , levels = c(
+'Ingen behandling',
+'Fortsatt medisinsk behandling',
+'Diskusjon/uavklart',
+'PCI elektiv',
+'PCI ad hoc',
+'Annet')))
+
+dat$Funn <- recode( dat$FYND , '
+1 = "Normalt/Ateromatose";
+2 = "1-kar ikke HS";
+3 = "2-kar ikke HS";
+4 = "3-kar ikke HS";
+5 = "HS + 1-kar";
+6 = "HS + 2-kar";
+7 = "HS + 3-kar";
+8 = "HS";
+0 = "Ikke konklusiv";
+else = NA')
+dat$Funn <- factor( dat$Funn , exclude = NULL )
+
+
+dat$HenvistFra <- recode( dat$TRANSFERREDFROM , '
+ 1 = "Kirkenes sykehus";
+ 2 = "Hammerfest sykehus";
+ 3 = "UNN-Tromsø";
+ 4 = "Harstad Sykehus";
+ 5 = "Narvik Sykehus";
+ 6 = "Nordlandssykehuset Lofoten";
+ 7 = "Nordlandssykehuset Vesterålen";
+ 8 = "Nordlandssykehuset Bodø";
+ 9 = "Helgelandssykehuset Mo i Rana";
+10 = "Helgelandssykehuset Mosjøen";
+11 = "Helgelandssykehuset Sandnessjøen";
+12 = "Sykehuset Namsos";
+13 = "Sykehuset Levanger";
+14 = "St.Olavs Hospital";
+15 = "Orkdal sykehus";
+16 = "Kristiansund sykehus";
+17 = "Molde sykehus";
+18 = "Ålesund sykehus";
+19 = "Volda sykehus";
+20 = "Nordfjordeid sjukehus";
+21 = "Førde sentralsjukehus";
+22 = "Lærdal sjukehus";
+23 = "Haraldsplass sykehus";
+24 = "Voss sjukehus";
+25 = "Haukeland Universitetssykehus";
+26 = "Stord sykehus";
+27 = "Odda sykehus";
+28 = "Haugesund sykehus";
+29 = "Stavanger Universitetssykshus";
+30 = "Sørlandet sykehus Kristiansand";
+31 = "Sørlandet sykehus Flekkefjord";
+32 = "Sørlandet sykehus Arendal";
+33 = "Sykehuset Telemark Skien";
+34 = "Sykehuset Telemark Rjukan";
+35 = "Sykehuset Telemark Notodden";
+36 = "Sykehuset i Vestfold";
+37 = "Drammen sykehus";
+38 = "Kongsberg sykehus";
+39 = "Lillehammer sykehus";
+40 = "Tynset sykehus";
+41 = "Akershus universitetssykeshus";
+42 = "OUS - Ullevål";
+43 = "OUS - Rikshospitalet";
+44 = "Sykehuset Østfold";
+45 = "Annet sykehus";
+else = "Direkte" # this should be NA
+')
+
+
+## this has to be improved and automated
+## the query gets TRANSFERREDFROMchar with the hospital names
+## there might be a variable which denotes the local hospital in order to define "Direkte"
+
+dat$DirekteTilPCI <- as.factor( dat$HenvistFra == "Direkte" )
+dat$HenvisningsStatus <- factor( x = (dat$HenvistFra == "Direkte") , labels = c("Henvist","Direkte"))
+
+   ### reformat time variables from char to POSIX
+dat$SYMPTOM_ONSET_DATE <- as.Date( dat$SYMPTOM_ONSET_DATE , "%Y-%m-%d")
+dat$REFERRING_HOSP_ADMISSIONDATE[ dat$HenvistFra == "Direkte" ] <- dat$HOSP_ADMISSIONDATE[ dat$HenvistFra == "Direkte" ] ## update admission date for directly admitted
+dat$REFERRING_HOSP_ADMISSIONDATE <- as.Date( dat$REFERRING_HOSP_ADMISSIONDATE , "%Y-%m-%d")
+dat$HOSP_ADMISSIONDATE <- as.Date( dat$HOSP_ADMISSIONDATE , "%Y-%m-%d")
+dat$ADMISSION_ER_DATE <- as.Date( dat$ADMISSION_ER_DATE , "%Y-%m-%d")
+dat$INTERDAT <- as.Date( dat$INTERDAT , "%Y-%m-%d")
+
+   ### month variable for agregation
+dat$Month <- format(dat$INTERDAT , "%y-%m")
+
+   ### calculate date diff in days
+dat$dTsymp2inter <- as.numeric(dat$INTERDAT - dat$SYMPTOM_ONSET_DATE ) ## Time from syptom onset to intervention
+dat$dTsymp2ad <- as.numeric(dat$HOSP_ADMISSIONDATE - dat$SYMPTOM_ONSET_DATE ) ## Time from symptom onset to admission @ PCI hospital
+dat$dTsymp2ref <- as.numeric(dat$REFERRING_HOSP_ADMISSIONDATE - dat$SYMPTOM_ONSET_DATE ) ## Time from symptom onset to admission @ referring hospital
+dat$dTref2ad <-  as.numeric(dat$HOSP_ADMISSIONDATE - dat$REFERRING_HOSP_ADMISSIONDATE ) ## Time from admission @ referring hospital to admission @ PCI hospital
+dat$dTref2inter <- as.numeric(dat$INTERDAT - dat$REFERRING_HOSP_ADMISSIONDATE ) ## Time from admission@referring hospital to intervention
+dat$dTad2inter <- as.numeric(dat$INTERDAT - dat$HOSP_ADMISSIONDATE ) ## Time from admission @ PCI center to intervention
+
+   ## some have missing symptom onset date, some have negative and some onset year 2001, 2003 !!
+   ## crude exclusion -> fix later :P
+dat$dTref2ad [ dat$dTref2ad < 0 ] <- NA
+dat$dTsymp2inter [ dat$dTsymp2inter < 0 ] <- NA
+dat$dTsymp2ad [ dat$dTsymp2ad < 0 ] <- NA
+dat$dTsymp2ref [ dat$dTsymp2ref < 0 ] <- NA
+dat$dTref2inter [ dat$dTref2inter < 0 ] <- NA
+dat$dTad2inter [ dat$dTad2inter < 0 ] <- NA
+
+dat$dTref2ad [ dat$dTref2ad > 100 ] <- NA
+dat$dTsymp2inter [ dat$dTsymp2inter > 100 ] <- NA
+dat$dTsymp2ad [ dat$dTsymp2ad > 100 ] <- NA
+dat$dTsymp2ref [ dat$dTsymp2ref > 100 ] <- NA
+dat$dTref2inter [ dat$dTref2inter > 100 ] <- NA
+dat$dTad2inter [ dat$dTad2inter > 100 ] <- NA
+
+
+   ### Defining some subsets of data -> resuling in some redundant data matrices, but savin a lot of indexing later on
+
+   ## get subacute NSTEMI patients
+   ## MCETYPE = 1/2/3 -> Hendelsestype 1) Planlagt, 2) Akutt, 3) Subakutt
+dat.NSTEMI <- subset( dat , subset = INDIKATION == 3 )
+
+dat.NSTEMI.subakutt <- subset( dat ,  subset = (Indikasjon == "NSTEMI") & (Hastegrad == "Subakutt"))
+
+dat.NSTEMI.subakutt.henvist <- subset( dat , subset = (Indikasjon == "NSTEMI") & (Hastegrad == "Subakutt") & (HenvisningsStatus == "Henvist"))
+dat.NSTEMI.subakutt.direkte <- subset( dat , subset = (Indikasjon == "NSTEMI") & (Hastegrad == "Subakutt") & (HenvisningsStatus == "Direkte"))
+
+@ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+% Gjør alle lenker mørkeblå
+\definecolor{darkblue}{rgb}{0.0,0.0,0.3}
+\hypersetup{colorlinks,breaklinks,linkcolor=darkblue,urlcolor=darkblue,anchorcolor=darkblue,citecolor=darkblue}
+
+% Ikke sett inn sidenummer for ``Parts''
+\makeatletter
+\let\sv@endpart\@endpart
+\def\@endpart{\thispagestyle{empty}\sv@endpart}
+\makeatother
+
+% Ikke bruk innrykk for nye avsnitt, men heller litt større vertikal avatand
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1ex plus 0.5ex minus 0.2ex}
+
+
+% Sett registerets navn
+\def \registernavn {\textit{NORIC}}
+
+
+% tittelting
+\title{\registernavn \\ \textbf{Årsrapport for \textit{2013} med \\
+plan for forbedringstiltak}}
+
+\author[1,2]{Siren Hovland}
+\author[1,2]{Reinhard Seifert}
+\author[1,2]{Svein Rotevatn}
+\affil[1]{Hjerteavdelingen, Haukeland universitetssykehus, Bergen}
+\affil[2]{NORIC}
+
+\renewcommand\Authands{ og }
+\renewcommand\Authfont{\scshape}
+\renewcommand\Affilfont{\itshape\small}
+
+
+% overstyre mulige ord-deling-er
+\hyphenation{stadium-vurder-ing system-atiske pasi-ent-rap-porterte
+retnings-linjer hjemmelsgrunnlag data-behandlings-ansvar nasjon-ale
+indi-kator-er styrings-gruppe}
+
+
+\begin{document}
+
+\maketitle
+
+\onecolumn
+
+
+
+\tableofcontents
+
+
+
+
+\part{Årsrapport}\label{par:rap}
+\thispagestyle{empty}
+\twocolumn
+
+
+
+\chapter{Sammendrag}
+
+
+
+
+\chapter{Registerbeskrivelse}\label{cha:reg}
+
+
+
+\section{Bakgrunn og formål}
+
+\subsection{Bakgrunn for registeret}\label{sec:bak}
+
+\subsection{Registerets formål}\label{sec:for}
+
+
+\section{Juridisk hjemmelsgrunnlag}\label{cha:jur}
+
+\section{Faglig ledelse og databehandlingsansvar}\label{cha:led}
+
+\subsection{Aktivitet i\\styringsgruppe/referansegruppe}
+
+
+
+
+
+
+
+
+
+
+
+
+\chapter{Resultater}\label{cha:res}
+
+
+
+
+
+
+
+
+
+
+
+
+\chapter{Metoder for fangst av data}\label{cha:metoder}
+
+
+
+
+\chapter{Metodisk kvalitet}\label{cha:kva}
+
+
+\section{Antall registreringer}\label{sec:reg}
+
+\section{Metode for beregning av dekningsgrad}\label{sec:met}
+
+\section{Dekningsgrad på institusjonsnivå}\label{sec:endek}
+
+\section{Dekningsgrad på individnivå}\label{sec:obs}
+
+\section{Metoder for intern sikring av datakvalitet}\label{sec:sik}
+
+\section{Metode for validering av data i registeret}\label{sec:metval}
+
+\section{Vurdering av datakvalitet}\label{sec:valdat}
+
+
+
+\chapter{Fagutvikling og klinisk kvalitetsforbedring}\label{cha:fag}
+
+\section{Registerets spesifikke kvalitetsmål}\label{sec:regspe}
+
+\section{Pasientrapporterte resultat- og erfaringsmål (PROM og PREM)}\label{sec:pasutk}
+
+\section{Sosiale og demografiske ulikheter i helse}\label{sec:sosdem}
+
+\section{Bidrag til utvikling av nasjonale retningslinjer, nasjonale
+kvalitetsindikatorer o.l.}\label{sec:retut}
+
+\section{Etterlevelse av nasjonale retningslinjer}\label{sec:retbru}
+
+\section{Identifisering av kliniske forbedringsområder}\label{sec:ide}
+
+\section{Tiltak for klinisk kvalitetsforbedring initiert av
+registeret}\label{sec:brures}
+
+\section{Evaluering av tiltak for klinisk kvalitetsforbedring (endret praksis)}\label{sec:evakva}
+
+\section{Pasientsikkerhet}\label{sec:kom}
+
+
+
+\chapter{Formidling av resultater}\label{cha:dat}
+
+
+\section{Resultater tilbake til deltakende fagmiljø}\label{sec:resfag}
+
+\section{Resultater til administrasjon og ledelse}\label{sec:resled}
+
+\section{Resultater til pasienter}\label{sec:respas}
+
+\section{Offentliggjøring av resultater på institusjonsnivå}\label{sec:off}
+
+
+
+
+
+\chapter{Samarbeid og forskning}\label{cha:for}
+
+
+\section{Samarbeid med andre helse- og kvalitetsregistre}\label{sec:samfag}
+
+
+\section{Vitenskapelige arbeider}\label{sec:vitarb}
+
+
+
+
+\onecolumn
+
+
+\part{Plan for forbedringstiltak}\label{par:for}
+
+
+\chapter{Momentliste}
+
+\begin{itemize}
+  \item Datafangst
+    \begin{itemize}
+      \item Forbedring av metoder for fangst av data
+    \end{itemize}
+  \item Metodisk kvalitet
+    \begin{itemize}
+      \item Nye registrerende enheter/avdelinger
+      \item Forbedring av dekningsgrad på individnivå i registeret
+      \item Endringer av rutiner for intern kvalitetssikring av data
+      \item Oppfølging av resultater fra validering mot eksterne kilder
+    \end{itemize}
+  \item Fagutvikling og kvalitetsforbedring av tjenesten
+    \begin{itemize}
+      \item Nye kvalitetsmål
+      \item Nye pasientrapporterte resultater som skal inn i registeret
+      \item Utvidet bruk av pasientrapporterte resultater
+      \item Nye demografiske variabler som skal inn i registeret
+      \item Utvidet bruk av demografiske variabler
+      \item Nye variabler som beskriver sosiale forhold hos pasientene
+      \item Utvidet bruk av resultater som beskriver sosiale ulikheter
+      \item Bidrag til etablering av nasjonale retningslinjer eller 
+        nasjonale kvalitetsindikatorer
+      \item Registrerende enheters etterlevelse av nasjonale retningslinjer
+      \item Økt bruk av resultater til klinisk kvalitetsforbedring i hver enkelt
+        institusjon
+      \item Prioriterte, kliniske forbedringsområder
+    \end{itemize}
+  \item Formidling av resultater
+    \begin{itemize}
+      \item Forbedring av resultatformidling til deltagende fagmiljø
+      \item Forbedring av resultatformidling til administrasjon og ledelse
+      \item Forbedring av resultatformidling til pasienter
+      \item Forbedring av hvordan resultater på institusjonsnivå offentliggjøres
+    \end{itemize}
+  \item Samarbeid og forskning
+    \begin{itemize}
+      \item Nye samarbeidspartnere
+      \item Forskningsprosjekter og annen vitenskapelig aktivitet
+    \end{itemize}
+\end{itemize}
+
+
+
+
+\part{Stadievurdering}
+
+
+\chapter{Referanser til vurdering av stadium}
+
+\bigskip
+\bigskip
+
+\begin{longtable}{rp{10cm}lcc}
+  \caption[Vurderingspunkter for stadium \registernavn]
+  {Vurderingspunkter for stadium \registernavn} \\
+  \hline 	 
+  Nr & Beskrivelse & Kapittel & Ja & Nei \\ 	 
+  \hline 	 
+  \endfirsthead 	 
+  \caption[]{forts.}\\ 	 
+  \hline 	 
+  Nr & Beskrivelse & Kapittel & Ja & Nei \\
+  \hline 	 
+  \endhead
+  \\
+  \multicolumn{4}{c}{\textit{Tabellen fortsetter på neste side}} \\
+  \hline
+  \endfoot 	 
+  \hline 	 
+  \endlastfoot
+   & \textbf{Stadium 2} & & \\
+  1 & Er i drift og samler data fra HF i alle helseregioner
+    & \ref{cha:res} & \CheckedBox
+    & \Square \\
+  2 & Presenterer resultater på nasjonalt nivå & \ref{cha:res} & \Square
+    & \Square \\
+  3 & Har en konkret plan for gjennomføring av dekningsgradsanalyser
+    & \ref{sec:met} & \Square & \Square \\
+  4 & Har en konkret plan for gjennomføring av analyser og løpende
+      rapportering av resultater på sykehusnivå tilbake til deltakende
+      enheter & \ref{sec:resfag} & \Square& \Square \\
+      5 & Har en oppdatert plan for videre utvikling av registeret
+      & Del \ref{par:for} & \Square& \Square \\
+   & & & \\
+
+   & \textbf{Stadium 3} & & \\
+  6 & Kan redegjøre for registerets datakvalitet
+    & \ref{sec:sik}, \ref{sec:metval}, \ref{sec:valdat} & \Square& \Square \\
+  7 & Har beregnet dekningsgrad mot uavhengig datakilde
+    & \ref{sec:met}, \ref{sec:endek}, \ref{sec:obs} & \Square& \Square \\
+  8 & Registrerende enheter kan få utlevert egne aggregerte og nasjonale
+      resultater
+    & \ref{sec:resfag} & \Square & \Square \\
+  9 & Presenterer deltakende enheters etterlevelse av de viktigste
+      nasjonale retningslinjer der disse finnes
+    & \ref{sec:retbru} & \Square & \Square \\
+  10 & Har identifisert kliniske forbedringsområder basert på analyser fra
+       registeret & \ref{sec:ide} & \Square & \Square \\
+  11 & Brukes til klinisk kvalitetsforbedringsarbeid
+    & \ref{sec:brures}, \ref{sec:evakva} & \Square & \Square \\
+  12 & Resultater anvendes vitenskapelig & \ref{sec:vitarb} & \Square
+    & \Square \\
+  13 & Presenterer resultater for PROM/PREM & \ref{sec:pasutk} & \Square
+    & \Square \\
+  14 & Har en oppdatert plan for videre utvikling av registeret
+    & Del \ref{par:for} & \Square & \Square \\
+   & & & \\
+
+   & \textbf{Stadium 4} & & \\
+  15 & Kan dokumentere registerets datakvalitet gjennom valideringsanalyser
+    & \ref{sec:valdat} & \Square & \Square \\
+  16 & Presenterer oppdatert dekningsgradsanalyse hvert 2. år
+    & \ref{sec:met}, \ref{sec:endek}, \ref{sec:obs} & \Square & \Square \\
+  17 & Har dekningsgrad over 80\% & \ref{sec:obs} & \Square & \Square \\
+  18 & Registrerende enheter har løpende (on-line) tilgang til oppdaterte egne
+       og nasjonale resultater & \ref{sec:resfag}, \ref{sec:off} & \Square
+    & \Square \\
+  19 & Presentere resultater på sosial ulikhet i helse & \ref{sec:sosdem}
+    & \Square & \Square \\
+  20 & Resultater fra registeret er tilpasset og tilgjengelig for pasienter
+    & \ref{sec:respas} & \Square & \Square \\
+  21 & Kunne dokumentere at registeret har ført til kvalitetsforbedring/endret
+       klinisk praksis & \ref{sec:evakva} & \Square& \Square \\
+  \label{tab:sta} 	 
+\end{longtable}
+
+
+\listoffigures
+\listoftables
+
+
+\end{document}
