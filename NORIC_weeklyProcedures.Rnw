@@ -1,0 +1,138 @@
+\documentclass[presentation,xcolor=pdftex,dvipsnames,table]{beamer}
+\usetheme{Hannover}
+\usecolortheme{seagull}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english, norsk]{babel}
+\usepackage[absolute,overlay]{textpos}
+\usepackage{xspace}
+\usepackage{booktabs}
+\usepackage{rotating}
+
+\usepackage{Sweave}
+
+
+\begin{document}
+
+<<initialGlobal, echo=F>>=
+# official colours
+blaa <- c('#084594','#2171b5','#4292c6','#6baed6','#c6dbef')
+graa <- c('#4D4D4D','#737373','#A6A6A6','#DADADA')
+kontrast <- '#FF7260'
+moerkeblaa <- '#000059'
+
+weeklyBrew <- c(kontrast, moerkeblaa, blaa)
+
+require(ggplot2)
+require(car)
+@
+
+<<initialLocalhost, echo=F, eval=F>>=
+load('dat.RData')
+@
+
+
+<<initialServer, echo=F, eval=T>>=
+require(yaml)
+require(RMySQL)
+
+conf <- yaml.load_file('../dbConfig.yml')
+
+weeklyProcedures <- function(reshID, conf) {
+q1 <- "SELECT
+         m.MCEID,
+         r.INTERDAT, "
+q2 <- "  as SHUS
+       FROM
+         mce m
+       INNER JOIN
+         regangio r ON m.MCEID=r.MCEID
+       WHERE
+         YEARWEEK(r.INTERDAT)=YEARWEEK(CURRENT_DATE)"
+
+# get data
+con <- dbConnect( dbDriver("MySQL") ,
+    dbname = unlist( conf[[paste("noric" , reshID , sep = "")]]["name"]) ,
+    host = unlist( conf[[paste("noric" , reshID , sep = "")]]["host"]) ,
+    user = unlist( conf[[paste("noric" , reshID , sep = "")]]["user"]) ,
+    password = unlist( conf[[paste("noric" , reshID , sep = "")]]["pass"]) )
+printname <- unlist( conf [[paste("noric" , reshID , sep = "")]]["disp"])
+query <- paste0(q1, "'", printname, "'", q2)
+dat <- dbGetQuery(con, query)
+
+# clean up
+con <- dbDisconnect(con)
+con <- dbUnloadDriver(dbDriver("MySQL"))
+
+# return data
+return( dat )
+}
+@
+
+
+<<queryDataServer, echo=F, eval=T>>=
+reshID <- 102966 #Bergen
+dat <- weeklyProcedures(reshID, conf)
+
+reshID <- 105502 #Stavanger
+dat <- rbind(dat, weeklyProcedures(reshID, conf))
+
+reshID <- 114150 #Sørlandet
+dat <- rbind(dat, weeklyProcedures(reshID, conf))
+
+reshID <- 700422 #Rikshospitalet
+dat <- rbind(dat, weeklyProcedures(reshID, conf))
+
+reshID <- 109880 #Ullevål
+dat <- rbind(dat, weeklyProcedures(reshID, conf))
+
+reshID <- 106944 #Feiring
+dat <- rbind(dat, weeklyProcedures(reshID, conf))
+
+reshID <- 104284 #StOlav
+dat <- rbind(dat, weeklyProcedures(reshID, conf))
+
+reshID <- 101619 #UNN
+dat <- rbind(dat, weeklyProcedures(reshID, conf))
+@
+
+<<structureData, echo=F>>=
+dat$INTERDAT <- as.Date(dat$INTERDAT, "%Y-%m-%d")
+dat$DAG <- format(dat$INTERDAT, format="%a")
+numberOfDays <- length(table(dat$DAG))
+if (is.element(format(Sys.time(), "%a"), dat$DAG)) {
+todaysBrew <- rev(weeklyBrew[1:numberOfDays])
+} else {
+todaysBrew <- rev(weeklyBrew[2:(numberOfDays+1)])
+}
+dat$DAG <- recode(dat$DAG, "'Sun'='Søn';'Mon'='Man';'Tue'='Tir';'Wed'='Ons';'Thu'='Tor';'Fri'='Fre';'Sat'='Lør'")
+#dat$DAG <- factor(dat$DAG, levels = c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"))
+dat$DAG <- factor(dat$DAG, levels = c("Søn", "Man", "Tir", "Ons", "Tor", "Fre", "Lør"))
+dat$SHUS <- factor(dat$SHUS, levels = c("UNN", "St Olav", "Bergen", "Stavanger", "Sørlandet", "Rikshospitalet", "Ullevål", "Feiring"))
+dateTimeStamp <- format(Sys.time(), "%d %b %Y, %H:%M:%S")
+#dat$DAG <- recode(dat@DAG, "'Sun'='Søn';'Mon'='Man';'Tue'='Tir';'Wed'='Ons';'Thu'='Tor';'Fri'='Fre';'Sat'='Lør'")
+@
+
+
+\frame
+{
+  \frametitle{Antall prosedyrer inneværende uke}
+
+<<makeFig, result=tex, echo=F>>=
+p1 <- ggplot(dat, aes(x=SHUS, fill=DAG)) + geom_bar() + scale_fill_manual(values=todaysBrew) + labs(y = "Antall", title=dateTimeStamp) + guides(fill = guide_legend(reverse = TRUE)) + coord_flip() + scale_x_discrete(drop=FALSE) + theme(axis.text.y=element_text(colour="black", size=12)) + theme(axis.title.y = element_blank())
+@
+
+  \begin{figure}
+    \centering
+
+<<printFig, fig=T,echo=F>>=
+print(p1)
+@
+
+
+  \end{figure}
+
+}
+
+\end{document}
