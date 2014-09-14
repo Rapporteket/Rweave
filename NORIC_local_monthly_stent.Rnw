@@ -10,32 +10,24 @@
 \usepackage{xspace}
 \usepackage{booktabs}
 \usepackage{rotating}
-
 \usepackage{Sweave}
 
 
-<<echo = FALSE , results = tex>>=
-require(yaml)
 
-conf <- yaml.load_file('../dbConfig.yml')
+<<echo = FALSE , results = tex>>=
+
+require(xtable)          # LaTeX tables
+require(car)             # recoding variables
+require(RColorBrewer)    # intellingent colour palettes
+require(RMySQL)          # accessing the database
+
+conf <- yaml::yaml.load_file('../dbConfig.yml')
 ## reshID <- 2 ## for local testing
 
 printname <- unlist( conf [[paste("noric" , reshID , sep = "")]]["disp"])
 
 cat("\\title{NORIC" , printname , "\\\\Stentbruk}\n\n")
 cat("\\date{" , date() , "}\n\n")
-@ 
-
-\begin{document}
-
-\maketitle
-
-
-<<echo = FALSE , eval = TRUE>>=
-require(xtable)          # LaTeX tables
-require(car)             # recoding variables
-
-require(RColorBrewer)    # intellingent colour palettes
 
 brew <- function(
     N = 3 ,
@@ -47,11 +39,6 @@ brew <- function(
         sep = "")
 
 
-require(ggplot2)
-
-## conf <- yaml::yaml.load_file('../dbConfig.yml') ; reshID <- 2
-require(RMySQL)          # accessing the database
-
 con <- dbConnect( dbDriver("MySQL") ,
   dbname = unlist( conf[[paste("noric" , reshID , sep = "")]]["name"]) ,
   host = unlist( conf[[paste("noric" , reshID , sep = "")]]["host"]) ,
@@ -59,8 +46,7 @@ con <- dbConnect( dbDriver("MySQL") ,
   password = unlist( conf[[paste("noric" , reshID , sep = "")]]["pass"]) )
 
 # ensure utf8 encoding
-query <- "SET NAMES utf8;"
-tmp <- dbGetQuery( con, query )
+t <- dbSendQuery( con, "SET NAMES utf8;" )
 
 stent.query <- "
 SELECT
@@ -116,11 +102,16 @@ dat.mce <- dbGetQuery( con , mce.query)
 con <- dbDisconnect(con)
 con <- dbUnloadDriver(dbDriver("MySQL"))
 
+
+
+
 dat.stent$GENDER <- factor(as.numeric(dat.stent$GENDER==1))
 
-dat.stent$DES <- factor(
-    x = dat.stent$DES ,
-    labels = c("BMS" , "DES" , "BVS"))
+
+dat.stent$DES[dat.stent$DES==0]="BMS"
+dat.stent$DES[dat.stent$DES==1]="DES"
+dat.stent$DES[dat.stent$DES==8]="BVS"
+dat.stent$DES <- factor( dat.stent$DES )
 
    # simplify Xience stent names
 dat.stent$STENTNAMN2 <- gsub(
@@ -208,6 +199,14 @@ dat.mce$YearQuarter <- factor(
 
 @ 
 
+
+
+
+
+
+\begin{document}
+
+\maketitle
 
 
 
