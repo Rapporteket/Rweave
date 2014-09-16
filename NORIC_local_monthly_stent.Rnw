@@ -46,7 +46,7 @@ con <- dbConnect( dbDriver("MySQL") ,
   password = unlist( conf[[paste("noric" , reshID , sep = "")]]["pass"]) )
 
 # ensure utf8 encoding
-t <- dbSendQuery( con, "SET NAMES utf8;" )
+t <- dbGetQuery( con, "SET NAMES utf8;" )
 
 stent.query <- "
 SELECT
