@@ -18,12 +18,6 @@
 
 
 
-
-<<echo = FALSE , results = tex>>=
-
-@ 
-
-
 <<echo = FALSE , eval = TRUE>>=
 
 library(car)             # recoding variables
@@ -66,12 +60,12 @@ GetDataLastYear <- function(reshID){
 
 dat <- rbind(
     GetDataLastYear(reshIDBergen) ,
-    GetDataLastYear(reshIDStavanger) ,
-    GetDataLastYear(reshIDSoerlandet) ,
-    GetDataLastYear(reshIDRikshospitalet) ,
-    GetDataLastYear(reshIDUllevaal) ,
-    GetDataLastYear(reshIDFeiring) ,
-    GetDataLastYear(reshIDStOlav) ,
+#    GetDataLastYear(reshIDStavanger) ,
+#    GetDataLastYear(reshIDSoerlandet) ,
+#    GetDataLastYear(reshIDRikshospitalet) ,
+#    GetDataLastYear(reshIDUllevaal) ,
+#    GetDataLastYear(reshIDFeiring) ,
+#    GetDataLastYear(reshIDStOlav) ,
     GetDataLastYear(reshIDUNN))
 
    ## MCETYPE = 1/2/3 -> Hendelsestype 1) Planlagt, 2) Akutt, 3) Subakutt
@@ -299,8 +293,6 @@ dat.NSTEMI.subakutt.direkte <- subset( dat , subset = (Indikasjon == "NSTEMI") &
 
 
 
-
-
 % Gjør alle lenker mørkeblå
 \definecolor{darkblue}{rgb}{0.0,0.0,0.3}
 \hypersetup{colorlinks,breaklinks,linkcolor=darkblue,urlcolor=darkblue,anchorcolor=darkblue,citecolor=darkblue}
@@ -339,6 +331,8 @@ plan for forbedringstiltak}}
 \hyphenation{stadium-vurder-ing system-atiske pasi-ent-rap-porterte
 retnings-linjer hjemmelsgrunnlag data-behandlings-ansvar nasjon-ale
 indi-kator-er styrings-gruppe}
+
+
 
 
 \begin{document}
@@ -416,7 +410,6 @@ cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n",
 @
 
 
-
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
 print(
@@ -427,6 +420,61 @@ print(
     rotate.colnames = TRUE)
 @
 \end{tiny}
+
+\clearpage
+
+
+\begin{figure}
+  \centering
+  \caption{Prosent andel prosedyrer etter hastegrad og PCI senter}
+<<echo=FALSE , results = tex>>=
+file = "r_procedures_mcetype_PCIcenter.pdf"
+pdf(file , width = 12 , height = 8 , pointsize = 12)
+
+op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+pal <- brew( length(levels(dat$Hastegrad)))
+barplot( 
+    100 * prop.table(
+        x = xtabs(
+            formula = ~ Hastegrad + factor(SHUS)  ,
+            data = dat) ,
+        margin = 2) ,
+    las = 1 ,
+    xlab = "PCI Senter" ,
+    ylab = "Prosent" ,
+    col = pal ,
+    space = 0.2 ,
+    border = FALSE)
+legend(
+    "right" ,
+    inset = -.28 ,
+    bty = "n" ,
+    horiz = FALSE ,
+    fill = pal, legend = levels(dat$Hastegrad) ,
+    cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+
+
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        100 * prop.table(
+            x = xtabs(
+                formula = ~ SHUS + Hastegrad ,
+                data = dat) ,
+            margin = 1) ,
+        digits = 1 , caption = "Prosent andel prosdyrer etter hastegrad og PCI senter") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+
+\clearpage
 
 
 
@@ -439,13 +487,30 @@ print(
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_regtyp_PCIcenter.pdf"
 pdf(file , width = 12 , height = 8 , pointsize = 12)
-
-op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+op <- par(mfcol = c (1,1) ,
+          xpd = NA ,
+          mar = c(5.1,4.1,4.1,13.1) ,
+          bg = "#EEEEEE")
 pal <- brew( length(levels(dat$Regtyp)))
-barplot( xtabs(~ Regtyp + factor(SHUS)  , data = dat) , las = 1 , xlab = "PCI Senter" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
-legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$Regtyp) , cex = 1)
+barplot(
+    xtabs(
+        ~ Regtyp + factor(SHUS) ,
+        data = dat) ,
+    las = 1 , 
+    xlab = "PCI Senter" , 
+    ylab = "Antall" , 
+    col = pal , 
+    space = 0.2 , 
+    border = FALSE)
+legend(
+    "right" , 
+    inset = -.28 , 
+    bty = "n" , 
+    horiz = FALSE , 
+    fill = pal , 
+    legend = levels(dat$Regtyp) , 
+    cex = 1)
 par(op)
-
 dev.null <- dev.off()
 cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
 @
@@ -456,12 +521,70 @@ cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n",
 <<echo = FALSE , results = tex>>=
 print(
     xtable(
-        addmargins( xtabs( ~ SHUS + Regtyp , dat)) ,
-        digits = 0 , caption = "Antall prosdyrer etter type og PCI senter") ,
+        addmargins(xtabs( ~ SHUS + Regtyp , dat)) ,
+        digits = 0 ,
+        caption = "Antall prosdyrer etter type og PCI senter") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
 \end{tiny}
+
+\clearpage
+
+
+
+\begin{figure}
+  \centering
+  \caption{Prosent andel prosedyrer etter type og PCI senter}
+<<echo=FALSE , results = tex>>=
+file = "r_procedures_regtyp_PCIcenter.pdf"
+pdf(file , width = 12 , height = 8 , pointsize = 12)
+
+op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+pal <- brew( length(levels(dat$Regtyp)))
+barplot( 
+    100 * prop.table(
+        x = xtabs(
+            formula = ~ Regtyp + factor(SHUS)  ,
+            data = dat) ,
+        margin = 2) ,
+    las = 1 ,
+    xlab = "PCI Senter" ,
+    ylab = "Prosent" ,
+    col = pal ,
+    space = 0.2 ,
+    border = FALSE)
+legend(
+    "right" ,
+    inset = -.28 ,
+    bty = "n" ,
+    horiz = FALSE ,
+    fill = pal, legend = levels(dat$Regtyp) ,
+    cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+
+
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        100 * prop.table(
+            x = xtabs(
+                formula = ~ SHUS + Regtyp ,
+                data = dat) ,
+            margin = 1) ,
+        digits = 1 , caption = "Prosent andel prosdyrer etter type og PCI senter") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+
+\clearpage
+
 
 
 
@@ -477,8 +600,23 @@ pdf(file , width = 12 , height = 8 , pointsize = 12)
 
 op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
 pal <- brew( length(levels(dat$PrimaerBeslutning)))
-barplot( xtabs(~ PrimaerBeslutning + factor(SHUS)  , data = dat) , las = 1 , xlab = "PCI Senter" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
-legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$PrimaerBeslutning) , cex = 1)
+barplot(
+    xtabs(
+        ~ PrimaerBeslutning + factor(SHUS) ,
+        data = dat) ,
+    las = 1 , 
+    xlab = "PCI Senter" , 
+    ylab = "Antall" , 
+    col = pal , 
+    space = 0.2 , 
+    border = FALSE)
+legend( "right" , 
+       inset = -.28 , 
+       bty = "n" , 
+       horiz = FALSE , 
+       fill = pal , 
+       legend = levels(dat$PrimaerBeslutning) , 
+       cex = 1)
 par(op)
 
 dev.null <- dev.off()
@@ -486,19 +624,77 @@ cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n",
 @
 
 
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins( xtabs( ~ SHUS + PrimaerBeslutning , dat)) ,
+        digits = 0 ,
+        caption = "Antall prosedyrer etter primær beslutning og PCI senter") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+
+\clearpage
+
+
+\begin{figure}
+  \centering
+  \caption{Prosent andel prosedyrer etter primær beslutning og PCI senter}
+<<echo=FALSE , results = tex>>=
+file = "r_procedures_primbes_PCIcenter.pdf"
+pdf(file , width = 12 , height = 8 , pointsize = 12)
+
+op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+pal <- brew( length(levels(dat$PrimaerBeslutning)))
+barplot(
+    100 * prop.table(
+        xtabs(
+            ~ PrimaerBeslutning + factor(SHUS) ,
+            data = dat) ,
+        margin = 2 ) ,
+    las = 1 , 
+    xlab = "PCI Senter" , 
+    ylab = "Antall" , 
+    col = pal , 
+    space = 0.2 , 
+    border = FALSE)
+legend( "right" , 
+       inset = -.28 , 
+       bty = "n" , 
+       horiz = FALSE , 
+       fill = pal , 
+       legend = levels(dat$PrimaerBeslutning) , 
+       cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat(
+    "\n\n\\includegraphics[width=0.95\\textwidth]{" ,
+    file ,
+    "}\n\\end{figure}\n",
+    sep="")
+@
 
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
 print(
     xtable(
-        addmargins( xtabs( ~ SHUS + PrimaerBeslutning , dat)) ,
-        digits = 0 , caption = "Antall prosedyrer etter primær beslutning og PCI senter") ,
+        100 * prop.table(
+            x = addmargins(
+                A = xtabs( ~ SHUS + PrimaerBeslutning , dat) ,
+                margin = 1) ,
+            margin = 1) ,
+        digits = 1 ,
+        caption = "Prosent andel prosedyrer etter primær beslutning og PCI senter") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
 \end{tiny}
 
+\clearpage
 
 
 
@@ -512,10 +708,28 @@ print(
 file = "N_procedures_primbes_detailed_PCIcenter.pdf"
 pdf(file , width = 12 , height = 8 , pointsize = 12)
 
-op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+op <- par(
+    mfcol = c (1,1) , 
+    xpd = NA , 
+    mar = c(5.1,4.1,4.1,13.1) , 
+    bg = "#EEEEEE")
 pal <- brew( length(levels(dat$PrimaerBeslutning2)))
-barplot( xtabs(~ PrimaerBeslutning2 + factor(SHUS)  , data = dat) , las = 1 , xlab = "PCI Senter" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
-legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$PrimaerBeslutning2) , cex = 1)
+barplot(
+    xtabs(~ PrimaerBeslutning2 + factor(SHUS)  , data = dat) , 
+    las = 1 , 
+    xlab = "PCI Senter" , 
+    ylab = "Antall" , 
+    col = pal , 
+    space = 0.2 , 
+    border = FALSE)
+legend(
+    "right" , 
+    inset = -.28 , 
+    bty = "n" , 
+    horiz = FALSE , 
+    fill = pal, 
+    legend = levels(dat$PrimaerBeslutning2) , 
+    cex = 1)
 par(op)
 
 dev.null <- dev.off()
@@ -523,18 +737,76 @@ cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n",
 @
 
 
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins( xtabs( ~ SHUS + PrimaerBeslutning2 , dat)) ,
+        digits = 0 ,
+        caption = "Antall prosedyrer etter primær beslutning og PCI senter") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+
+\clearpage
+
+
+\begin{figure}
+  \centering
+  \caption{Prosent andel prosedyrer etter primær beslutning og PCI senter}
+<<echo=FALSE , results = tex>>=
+file = "r_procedures_primbes_detailed_PCIcenter.pdf"
+pdf(file , width = 12 , height = 8 , pointsize = 12)
+
+op <- par(
+    mfcol = c (1,1) , 
+    xpd = NA , 
+    mar = c(5.1,4.1,4.1,13.1) , 
+    bg = "#EEEEEE")
+pal <- brew( length(levels(dat$PrimaerBeslutning2)))
+barplot(
+    100 * prop.table(
+        xtabs(~ PrimaerBeslutning2 + factor(SHUS)  , data = dat) ,
+        margin = 2 ) ,
+    las = 1 , 
+    xlab = "PCI Senter" , 
+    ylab = "Prosent" , 
+    col = pal , 
+    space = 0.2 , 
+    border = FALSE)
+legend(
+    "right" , 
+    inset = -.28 , 
+    bty = "n" , 
+    horiz = FALSE , 
+    fill = pal, 
+    legend = levels(dat$PrimaerBeslutning2) , 
+    cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
 
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
 print(
     xtable(
-        addmargins( xtabs( ~ SHUS + PrimaerBeslutning2 , dat)) ,
-        digits = 0 , caption = "Antall prosedyrer etter primær beslutning og PCI senter") ,
+        100 * prop.table(
+            x = addmargins(
+                A = xtabs( ~ SHUS + PrimaerBeslutning2 , dat) ,
+                margin = 1) ,
+            margin = 1) ,
+        digits = 1 ,
+        caption = "Proent andel prosedyrer etter primær beslutning og PCI senter") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
 \end{tiny}
+
+\clearpage
 
 
 
@@ -547,18 +819,36 @@ print(
   \caption{Antall prosdyrer etter vakttid og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_jourtid_PCIcenter.pdf"
-pdf(file , width = 12 , height = 8 , pointsize = 12)
+pdf(
+    file = file , 
+    width = 12 , 
+    height = 8 , 
+    pointsize = 12)
 
-op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+op <- par(
+    mfcol = c (1,1) , 
+    xpd = NA , 
+    mar = c(5.1,4.1,4.1,13.1) , 
+    bg = "#EEEEEE")
 pal <- brew( length(levels(dat$Vakttid)))
-barplot( xtabs(~ Vakttid + factor(SHUS)  , data = dat) , las = 1 , xlab = "PCI Senter" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
-legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$Vakttid) , cex = 1)
+barplot(
+    xtabs(~ Vakttid + factor(SHUS) , data = dat) , 
+    las = 1 , 
+    xlab = "PCI Senter" , 
+    ylab = "Antall" , 
+    col = pal , 
+    space = 0.2 , 
+    border = FALSE)
+legend( "right" , 
+       inset = -.28 , 
+       bty = "n" , 
+       horiz = FALSE , 
+       fill = pal, legend = levels(dat$Vakttid) , cex = 1)
 par(op)
 
 dev.null <- dev.off()
 cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
 @
-
 
 
 \begin{tiny}
@@ -572,6 +862,65 @@ print(
 @
 \end{tiny}
 
+\clearpage
+
+
+\begin{figure}
+  \centering
+  \caption{Prosent andel prosdyrer etter vakttid og PCI senter}
+<<echo=FALSE , results = tex>>=
+file = "r_procedures_jourtid_PCIcenter.pdf"
+pdf(
+    file = file , 
+    width = 12 , 
+    height = 8 , 
+    pointsize = 12)
+
+op <- par(
+    mfcol = c (1,1) , 
+    xpd = NA , 
+    mar = c(5.1,4.1,4.1,13.1) , 
+    bg = "#EEEEEE")
+pal <- brew( length(levels(dat$Vakttid)))
+barplot(
+    100 * prop.table(
+        xtabs(~ Vakttid + factor(SHUS) , data = dat) ,
+        margin = 2 ) ,
+    las = 1 , 
+    xlab = "PCI Senter" , 
+    ylab = "Prosent" , 
+    col = pal , 
+    space = 0.2 , 
+    border = FALSE)
+legend( "right" , 
+       inset = -.28 , 
+       bty = "n" , 
+       horiz = FALSE , 
+       fill = pal, legend = levels(dat$Vakttid) , cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+
+
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        100 * prop.table(
+            x = addmargins(
+                A = xtabs( ~ SHUS + Vakttid , dat) ,
+                margin = 1 ) ,
+            margin = 1 ) ,
+        digits = 1 , caption = "Prosent andel prosedyrer etter vakttid og PCI senter") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+
+\clearpage
+
 
 
    %%% INDIKATION
@@ -582,19 +931,38 @@ print(
   \caption{Antall prosedyrer etter indikasjon og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_indikation_PCIcenter.pdf"
-pdf(file , width = 12 , height = 8 , pointsize = 12)
-
-op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+pdf(
+    file = file , 
+    width = 12 , 
+    height = 8 , 
+    pointsize = 12)
+op <- par(
+    mfcol = c (1,1) , 
+    xpd = NA , 
+    mar = c(5.1,4.1,4.1,13.1) , 
+    bg = "#EEEEEE")
 pal <- brew( length(levels(dat$Indikasjon)))
-barplot( xtabs(~ Indikasjon + factor(SHUS)  , data = dat) , las = 1 , xlab = "PCI Senter" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
-legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$Indikasjon) , cex = 1)
+barplot(
+    xtabs(~ Indikasjon + factor(SHUS) , data = dat) , 
+    las = 1 , 
+    xlab = "PCI Senter" , 
+    ylab = "Antall" , 
+    col = pal , 
+    space = 0.2 , 
+    border = FALSE)
+legend(
+    "right" , 
+    inset = -.28 , 
+    bty = "n" , 
+    horiz = FALSE , 
+    fill = pal, 
+    legend = levels(dat$Indikasjon) , 
+    cex = 1)
 par(op)
 
 dev.null <- dev.off()
 cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
 @
-
-
 
 
 \begin{tiny}
@@ -602,29 +970,51 @@ cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n",
 print(
     xtable(
         addmargins( xtabs( ~ SHUS + Indikasjon , dat)) ,
-        digits = 0 , caption = "Antall prosedyrer etter indikasjon og PCI senter") ,
+        digits = 0 ,
+        caption = "Antall prosedyrer etter indikasjon og PCI senter") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
 \end{tiny}
 
-
-
-   %%% FYND
+\clearpage
 
 
 
 \begin{figure}
   \centering
-  \caption{Antall prosedyrer etter funn og PCI senter}
+  \caption{Prosent andel prosedyrer etter indikasjon og PCI senter}
 <<echo=FALSE , results = tex>>=
-file = "N_procedures_fynd_PCIcenter.pdf"
-pdf(file , width = 12 , height = 8 , pointsize = 12)
-
-op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
-pal <- brew( length(levels(dat$Funn)))
-barplot( xtabs(~ Funn + factor(SHUS)  , data = dat) , las = 1 , xlab = "PCI Senter" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
-legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$Funn) , cex = 1)
+file = "r_procedures_indikation_PCIcenter.pdf"
+pdf(
+    file = file , 
+    width = 12 , 
+    height = 8 , 
+    pointsize = 12)
+op <- par(
+    mfcol = c (1,1) , 
+    xpd = NA , 
+    mar = c(5.1,4.1,4.1,13.1) , 
+    bg = "#EEEEEE")
+pal <- brew( length(levels(dat$Indikasjon)))
+barplot(
+    100 * prop.table(
+        x = xtabs(~ Indikasjon + factor(SHUS) , data = dat) , 
+        margin = 2 ) ,
+    las = 1 , 
+    xlab = "PCI Senter" , 
+    ylab = "Prosent" ,
+    col = pal , 
+    space = 0.2 , 
+    border = FALSE)
+legend(
+    "right" , 
+    inset = -.28 , 
+    bty = "n" , 
+    horiz = FALSE , 
+    fill = pal, 
+    legend = levels(dat$Indikasjon) , 
+    cex = 1)
 par(op)
 
 dev.null <- dev.off()
@@ -632,18 +1022,142 @@ cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n",
 @
 
 
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        100 * prop.table(
+            x = addmargins(
+                A = xtabs( ~ SHUS + Indikasjon , dat) ,
+                margin = 1 ) ,
+            margin = 1) ,
+        digits = 1 ,
+        caption = "Prosent andel prosedyrer etter indikasjon og PCI senter") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+
+\clearpage
+
+
+
+   %%% FYND
+
+
+\begin{figure}
+  \centering
+  \caption{Antall prosedyrer etter funn og PCI senter}
+<<echo=FALSE , results = tex>>=
+file = "N_procedures_fynd_PCIcenter.pdf"
+pdf(
+    file = file ,
+    width = 12 ,
+    height = 8 , 
+    pointsize = 12)
+op <- par(
+    mfcol = c (1,1) ,
+    xpd = NA ,
+    mar = c(5.1,4.1,4.1,13.1) ,
+    bg = "#EEEEEE")
+pal <- brew( length(levels(dat$Funn)))
+barplot(
+    xtabs(~ Funn + factor(SHUS)  , data = dat) ,
+    las = 1 ,
+    xlab = "PCI Senter" , 
+    ylab = "Antall" , 
+    col = pal , 
+    space = 0.2 , 
+    border = FALSE)
+legend(
+    "right" , 
+    inset = -.28 , 
+    bty = "n" , 
+    horiz = FALSE , 
+    fill = pal, 
+    legend = levels(dat$Funn) , 
+    cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
 print(
     xtable(
         addmargins( xtabs( ~ SHUS + Funn , dat)) ,
-        digits = 0 , caption = "Antall prosedyrer etter funn og PCI senter") ,
+        digits = 0 ,
+        caption = "Antall prosedyrer etter funn og PCI senter") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
 \end{tiny}
 
+\clearpage
+
+
+
+\begin{figure}
+  \centering
+  \caption{Prosent andel prosedyrer etter funn og PCI senter}
+<<echo=FALSE , results = tex>>=
+file = "r_procedures_fynd_PCIcenter.pdf"
+pdf(
+    file = file ,
+    width = 12 ,
+    height = 8 , 
+    pointsize = 12)
+op <- par(
+    mfcol = c (1,1) ,
+    xpd = NA ,
+    mar = c(5.1,4.1,4.1,13.1) ,
+    bg = "#EEEEEE")
+pal <- brew( length(levels(dat$Funn)))
+barplot(
+    100 * prop.table(
+        x = xtabs(~ Funn + factor(SHUS)  , data = dat) ,
+        margin = 2 ) ,
+    las = 1 ,
+    xlab = "PCI Senter" , 
+    ylab = "Prosent" , 
+    col = pal , 
+    space = 0.2 , 
+    border = FALSE)
+legend(
+    "right" , 
+    inset = -.28 , 
+    bty = "n" , 
+    horiz = FALSE , 
+    fill = pal, 
+    legend = levels(dat$Funn) , 
+    cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+
+
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        100 * prop.table(
+            x = addmargins(
+                A = xtabs( ~ SHUS + Funn , dat) ,
+                margin = 1 ) ,
+            margin = 1 ) ,
+        digits = 1 ,
+        caption = "Prosent andel prosedyrer etter funn og PCI senter") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+
+\clearpage
 
 
 
