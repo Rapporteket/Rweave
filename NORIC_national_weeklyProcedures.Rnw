@@ -26,14 +26,18 @@ weeklyBrew <- c(kontrast, moerkeblaa, blaa)
 
 require(ggplot2)
 require(car)
+
+# set TIME locale
+#silent <- Sys.setlocale("LC_TIME", "en_US.UTF8")
+silent <- Sys.setlocale("LC_TIME", "nb_NO.UTF-8")
 @
 
-<<initialLocalhost, echo=F, eval=F>>=
+<<initialLocalhost, echo=F, eval=T>>=
 load('dat.RData')
 @
 
 
-<<initialServer, echo=F, eval=T>>=
+<<initialServer, echo=F, eval=F>>=
 require(yaml)
 require(RMySQL)
 
@@ -71,7 +75,7 @@ return( dat )
 @
 
 
-<<queryDataServer, echo=F, eval=T>>=
+<<queryDataServer, echo=F, eval=F>>=
 reshID <- 102966 #Bergen
 dat <- weeklyProcedures(reshID, conf)
 
@@ -100,18 +104,19 @@ dat <- rbind(dat, weeklyProcedures(reshID, conf))
 <<structureData, echo=F>>=
 dat$INTERDAT <- as.Date(dat$INTERDAT, "%Y-%m-%d")
 dat$DAG <- format(dat$INTERDAT, format="%a")
+dat$DAGNUM <- format(dat$INTERDAT, format="%w")
+today <- format(Sys.time(), "%a")
 numberOfDays <- length(table(dat$DAG))
-if (is.element(format(Sys.time(), "%a"), dat$DAG)) {
+if (is.element(today, dat$DAG)) {
 todaysBrew <- rev(weeklyBrew[1:numberOfDays])
 } else {
 todaysBrew <- rev(weeklyBrew[2:(numberOfDays+1)])
 }
-dat$DAG <- recode(dat$DAG, "'Sun'='Søn';'Mon'='Man';'Tue'='Tir';'Wed'='Ons';'Thu'='Tor';'Fri'='Fre';'Sat'='Lør'")
-#dat$DAG <- factor(dat$DAG, levels = c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"))
-dat$DAG <- factor(dat$DAG, levels = c("Søn", "Man", "Tir", "Ons", "Tor", "Fre", "Lør"))
+dat$DAG <- factor(dat$DAG)
+dat$DAG <- recode(dat$DAG, "today='I dag'")
+dat$DAG <- reorder(dat$DAG, as.numeric(dat$DAGNUM))
 dat$SHUS <- factor(dat$SHUS, levels = c("UNN", "St Olav", "Bergen", "Stavanger", "Sørlandet", "Rikshospitalet", "Ullevål", "Feiring"))
 dateTimeStamp <- format(Sys.time(), "%d %b %Y, %H:%M:%S")
-#dat$DAG <- recode(dat@DAG, "'Sun'='Søn';'Mon'='Man';'Tue'='Tir';'Wed'='Ons';'Thu'='Tor';'Fri'='Fre';'Sat'='Lør'")
 @
 
 
@@ -120,7 +125,9 @@ dateTimeStamp <- format(Sys.time(), "%d %b %Y, %H:%M:%S")
   \frametitle{Antall prosedyrer inneværende uke}
 
 <<makeFig, result=tex, echo=F>>=
-p1 <- ggplot(dat, aes(x=SHUS, fill=DAG)) + geom_bar() + scale_fill_manual(values=todaysBrew) + labs(y = "Antall", title=dateTimeStamp) + guides(fill = guide_legend(reverse = TRUE)) + coord_flip() + scale_x_discrete(drop=FALSE) + theme(axis.text.y=element_text(colour="black", size=12)) + theme(axis.title.y = element_blank())
+p1 <- ggplot(dat, aes(x=SHUS, fill=DAG))
+
+p1 <- p1 + geom_bar() + scale_fill_manual(values=todaysBrew) + labs(y = "Antall", title=dateTimeStamp) + guides(fill = guide_legend(reverse = TRUE)) + coord_flip() + scale_x_discrete(drop=FALSE) + theme(axis.text.y=element_text(colour="black", size=12)) + theme(axis.title.y = element_blank())
 @
 
   \begin{figure}
