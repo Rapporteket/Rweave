@@ -32,12 +32,12 @@ require(car)
 silent <- Sys.setlocale("LC_TIME", "nb_NO.UTF-8")
 @
 
-<<initialLocalhost, echo=F, eval=T>>=
+<<initialLocalhost, echo=F, eval=F>>=
 load('dat.RData')
 @
 
 
-<<initialServer, echo=F, eval=F>>=
+<<initialServer, echo=F, eval=T>>=
 require(yaml)
 require(RMySQL)
 
@@ -75,7 +75,7 @@ return( dat )
 @
 
 
-<<queryDataServer, echo=F, eval=F>>=
+<<queryDataServer, echo=F, eval=T>>=
 reshID <- 102966 #Bergen
 dat <- weeklyProcedures(reshID, conf)
 
@@ -116,7 +116,7 @@ dat$DAG <- factor(dat$DAG)
 dat$DAG <- recode(dat$DAG, "today='I dag'")
 dat$DAG <- reorder(dat$DAG, as.numeric(dat$DAGNUM))
 dat$SHUS <- factor(dat$SHUS, levels = c("UNN", "St Olav", "Bergen", "Stavanger", "Sørlandet", "Rikshospitalet", "Ullevål", "Feiring"))
-dateTimeStamp <- format(Sys.time(), "%d %b %Y, %H:%M:%S")
+dateTimeStamp <- format(Sys.time(), "%A %d %b %Y, %H:%M:%S")
 @
 
 
@@ -125,9 +125,16 @@ dateTimeStamp <- format(Sys.time(), "%d %b %Y, %H:%M:%S")
   \frametitle{Antall prosedyrer inneværende uke}
 
 <<makeFig, result=tex, echo=F>>=
-p1 <- ggplot(dat, aes(x=SHUS, fill=DAG))
-
-p1 <- p1 + geom_bar() + scale_fill_manual(values=todaysBrew) + labs(y = "Antall", title=dateTimeStamp) + guides(fill = guide_legend(reverse = TRUE)) + coord_flip() + scale_x_discrete(drop=FALSE) + theme(axis.text.y=element_text(colour="black", size=12)) + theme(axis.title.y = element_blank())
+p1 <- ggplot(dat, aes(x=SHUS, fill=DAG)) + geom_bar()
+# filling, guide axis and stuff
+p1 <- p1 + scale_fill_manual(values=todaysBrew)
+p1 <- p1 + guides(fill = guide_legend(reverse = TRUE, title=NULL))
+p1 <- p1 + coord_flip() + scale_x_discrete(drop=FALSE)
+#lables, title and stuff
+p1 <- p1 + labs(y = "Antall", title=dateTimeStamp)
+p1 <- p1 + theme(axis.text.y=element_text(colour="black", size=12))
+p1 <- p1 + theme(axis.title.y = element_blank())
+p1 <- p1 + theme(plot.title=element_text(size=10, hjust=1, color="gray")) 
 @
 
   \begin{figure}
