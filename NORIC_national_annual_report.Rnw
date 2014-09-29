@@ -281,18 +281,6 @@ dat.NSTEMI.subakutt.direkte <- subset( dat , subset = (Indikasjon == "NSTEMI") &
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 % Gjør alle lenker mørkeblå
 \definecolor{darkblue}{rgb}{0.0,0.0,0.3}
 \hypersetup{colorlinks,breaklinks,linkcolor=darkblue,urlcolor=darkblue,anchorcolor=darkblue,citecolor=darkblue}
@@ -1207,42 +1195,57 @@ print(
 
 
 \section{Antall registreringer}\label{sec:reg}
+Per 31.12.2013 var det 5031 registrerte opphold i NORIC, hvor opphold er definert som besøk eller undersøkelser ved invasivt kardiologisk laboratorium for diagnostikk eller behandling. Disse oppholdene er fordelt på 2982 angiografier, 1811 med kombinert angiografi + PCI, og 238 prosedyrer der det bare ble utført PCI, det vi si til sammen 4793 koronar angiografier og 2049 PCIer (jfr. tabell 3.3).  
 
 \section{Metode for beregning av dekningsgrad}\label{sec:met}
+NORIC er ennå ikke koblet til basisregisteret ved Folkehelseinstituttet, så dekningsgradsanalyser er begrenset til summariske opplysninger fra sykehusinterne datasystem. Dette er bare utført for HUS ved hjelp av registreringer i Orbit, da det ikke er tilsvarende registreringer ved UNN. 
 
 \section{Dekningsgrad på institusjonsnivå}\label{sec:endek}
+For 2013 er det ved HUS registrert 3035 angiografier og 1290 PCI i NORIC og 3133 angiografier og 1360 PCIer  i Orbit. Dette gir en dekningsgrad på henholdsvis 97 og 95 \%.
 
 \section{Dekningsgrad på individnivå}\label{sec:obs}
+Ikke utført for 2013.
 
 \section{Metoder for intern sikring av datakvalitet}\label{sec:sik}
+Under utfyllingen av registreringsskjema blir variabler der dette er mulig og aktuelt, sjekket mot andre variabler for å sikre samsvar mellom disse. Kvaliteten på data blir også forsøkt sikret ved å sjekke at de verdiene som blir lagt inn, er innenfor grenser som er sannsynlige eller tillatt.
+
+Registreringene blir dels utfylt i tilknytning til selve prosedyren av operatør og radiograf/sykepleier. Etter intensjonen skal dette kvalitetssikres og bli supplert i ettertid av registreringspersonale ved det enkelte sykehus mot journalopplysninger og eventuelt annen informasjon som måtte foreligge. Praksis på dette punktet varierer nok en god del mellom deltakende sykehus.
 
 \section{Metode for validering av data i registeret}\label{sec:metval}
+Ikke utført for 2013.
 
 \section{Vurdering av datakvalitet}\label{sec:valdat}
-
+Ikke utført analyser av dette for 2013.
 
 
 \chapter{Fagutvikling og klinisk kvalitetsforbedring}\label{cha:fag}
 
 \section{Registerets spesifikke kvalitetsmål}\label{sec:regspe}
+Spesifikke kvalitetsmål er ikke endelig bestemt, men vil omfatte mål på om virksomheten er i samsvar med anbefalinger i internasjonale retningslinjer. Eksempler på dette er ventetid på invasiv utredning ved NSTEMI (ikke-ST-elevasjonsinfarkt) og ``Dør til ballongtid'' ved STEMI (ST-elevasjonsinfarkt). Vi vil også se på 30-dagers mortalitet etter PCI. Vi vil også utvikle andre prosedyrespesifikke kvalitetsmål som stråledoser ved angiografi.
 
 \section{Pasientrapporterte resultat- og erfaringsmål (PROM og PREM)}\label{sec:pasutk}
+Det er foreløpig ikke utarbeidet en plan for registrering av pasientrapporterte resultat- og erfaringsmål.
 
 \section{Sosiale og demografiske ulikheter i helse}\label{sec:sosdem}
+Sosiale og demografiske ulikheter er i liten grad med i registeret siden det ikke er hjemmel for å registrere dette i henhold til Hjerte- og karregisterforskriften. Det er kun variabler som alder, kjønn og kommunetilhørighet som nå registreres via kobling til Folkeregisteret.
 
-\section{Bidrag til utvikling av nasjonale retningslinjer, nasjonale
-kvalitetsindikatorer o.l.}\label{sec:retut}
+\section{Bidrag til utvikling av nasjonale retningslinjer, nasjonale kvalitetsindikatorer o.l.}\label{sec:retut}
+Dette vil bli tatt opp i løpet av høsten 2014.
 
 \section{Etterlevelse av nasjonale retningslinjer}\label{sec:retbru}
+Det er ikke utviklet nasjonale retningslinjer for dette fagområdet.
 
 \section{Identifisering av kliniske forbedringsområder}\label{sec:ide}
+Analyser som er utført for Haukeland universitetssjukehus har vist at ventetiden for angiografi/PCI ved NSTEMI er vesentlig lengre enn anbefalt i internasjonale aksepterte retningslinjer. Dette gjelder i særlig grad pasienter som henvises fra andre sykehus.
 
-\section{Tiltak for klinisk kvalitetsforbedring initiert av
-registeret}\label{sec:brures}
+\section{Tiltak for klinisk kvalitetsforbedring initiert av registeret}\label{sec:brures}
+Ledelsen ved aktuell avdeling er gjort oppmerksom på problemet med lang ventetid ved NSTEMI. Det blir forsøkt å prioritere denne type pasienter til slike undersøkelser, men utover det kjenner vi ikke til spesifikke tiltak.
 
 \section{Evaluering av tiltak for klinisk kvalitetsforbedring (endret praksis)}\label{sec:evakva}
+Det er kort tid siden resultatene ble lagt fram slik at analyser på utviklingen etter dette ikke er utført ennå.
 
 \section{Pasientsikkerhet}\label{sec:kom}
+I NORIC registreres komplikasjoner som kan være livstruende, behandlingskrevende, gi varige mén eller forlenge sykehusoppholdet for pasienten. Det skilles mellom komplikasjoner og/eller uønskede hendelser som oppstår i direkte tilknytning til prosedyren og etter at pasienten er overflyttet til sengepost eller sykehusavdeling. Dette omfatter en rekke variabler: allergiske reaksjoner, blødninger (registreres i detalj), vaskulær (utenom koronare kar), neurologisk komplikasjon, nytilkommet nyreinsuffisiens, tamponade, komplikasjon i behandlet koronarkar med ny PCI, ACB-operasjon på grunn av komplikasjon, hjerteinfarkt og død.
 
 
 
@@ -1250,14 +1253,16 @@ registeret}\label{sec:brures}
 
 
 \section{Resultater tilbake til deltakende fagmiljø}\label{sec:resfag}
+Ved hjelp av Rapporteket er det nå laget 2 rapporter fra virksomheten ved det enkelte senter. Denne vil bli sendt regelmessig til fagmiljøet. Så snart det er etablert en samlet database for alle senter, vil tallene i rapporten til det enkelte senter kunne sammenlignes med tilsvarende for hele landet.
 
 \section{Resultater til administrasjon og ledelse}\label{sec:resled}
+Vi har så langt latt resultater fra registeret gå tjenestevei fra seksjonsledelse til høyere nivå.
 
 \section{Resultater til pasienter}\label{sec:respas}
+Vi har ikke gjennomført formidling av resultater til pasienter. Det planlegges oppretting av egen nettside hvor pasienter kan hente informasjon om registeret og hvor årsrapporter vil kunne lastes ned.
 
 \section{Offentliggjøring av resultater på institusjonsnivå}\label{sec:off}
-
-
+Resultater på institusjonsnivå blir for første gang presentert i denne årsrapporten, men er begrenset til resultater fra UNN og HUS som var de eneste som brukte registeret i 2013. Utenom dette er resultater for ventetider ved NSTEMI ved HUS presentert på Kvalitetsregisterkonferansen og på Vårmøtet i Norsk Cardiologisk Selskap.
 
 
 
@@ -1265,10 +1270,10 @@ registeret}\label{sec:brures}
 
 
 \section{Samarbeid med andre helse- og kvalitetsregistre}\label{sec:samfag}
-
+Vi samarbeider med det tilsvarende svenske kvalitetsregisteret for invasiv kardiologi (SCAAR). I oppbyggingen av NORIC har vi brukt SCAAR som modell, og det er viktig for oss å dra nytte av de erfaringer som er gjort gjennom mange år med registerarbeid der. Vi bruker i stor grad samme variabeldefinisjoner for å sikre at vi kan sammenligne resultater og bruke registrene i felles vitenskapelige publikasjoner.
 
 \section{Vitenskapelige arbeider}\label{sec:vitarb}
-
+Registeret er i oppbyggingsfase slik at det er svært begrenset hva vi har gjort så langt. Vi har presentert resultater fra Haukeland universitetssjukehus på Kvalitetsregisterkonferansen i 2014 og på vårmøtet til Norsk Cardiologisk Selskap.
 
 
 
@@ -1276,7 +1281,6 @@ registeret}\label{sec:brures}
 
 
 \part{Plan for forbedringstiltak}\label{par:for}
-
 
 \chapter{Momentliste}
 
@@ -1323,15 +1327,38 @@ registeret}\label{sec:brures}
 \end{itemize}
 
 
+\section{Datafangst}
+
+Dataregistrering foregår på samme måte som tidligere ved at operatør sammen med sykepleier/radiograf og eget registreringspersonell legger inn bakgrunnsopplysninger om pasienten, data fra prosedyren og opplysninger om utskrivelsen og eventuelle komplikasjoner. I tillegg ønsker vi å utvikle et system for direkte overføring av stråledoser fra angiografi/PCI - prosedyrene til registeret.
+
+
+\section{Metodisk kvalitet}
+
+Pr. september 2014 er 6 av totalt 8 invasive sentre i gang med registrering av data i NORIC. Vi vil arbeide for at de to resterende sykehusene også skal ta i bruk kvalitetsregisteret. Dekningsgradsanalyser vil bli gjennomført ved hjelp av data fra NPR når vi er koblet opp mot det Nasjonale hjerte- og karregisteret. For det enkelte sykehus vil vi tilstrebe løsninger for fortløpende kontroll (daglig/ukentlig) mot andre kliniske registreringssystem for å sjekke at alle pasienter blir registrert. Dette er allerede implementert ved Haukeland universitetssjukehus ved kontroll mot Orbit som blir brukt til planlegging av programmet på laboratoriene. 
+
+
+\section{Fagutvikling og kvalitetsforbedring av tjenesten}
+
+I løpet av 2014 vil vi bestemme nye kvalitetsmål for registeret. I den forbindelse vil vi også se på de kvalitetsmål som blir brukt i Sverige på tilsvarende register der.  Disse er delvis basert på etterlevelse av aksepterte guidelines (retningslinjer) for behandling av spesifikke tilstander.   
+
+Vi ønsker å utvikle system for pasientrapporterte resultater, men er avhengig av finansiering for å gjennomføre dette. Vi vil også bidra til utvikling av nasjonale kvalitetsindikatorer innenfor invasiv kardiologi.
+
+Våre muligheter til å registrere demografiske og sosiale variabler er begrenset siden disse ikke er hjemlet i forskriften for Hjerte- og karregisteret. 
+
+
+\section{Formidling av resultater}
+
+Vi har til nå laget en månedsrapport for virksomheten og en rapport som viser forbruket av forskjellige stenter. Vi vil videreutvikle rapportene til fagmiljøene med bl.a. ulike prosessmål og en rapport som viser stråledoser. Vi tar også sikte på å utvikle rapporter for den enkelte operatør, slik at vedkommende kan sjekke sin praksis med et gjennomsnitt for landet.  
+
+Noen av disse rapportene vil kunne finnes på web-siden til registeret og dermed tilgjengelig for pasienter og andre interesserte.
+
+
 
 
 \part{Stadievurdering}
 
 
 \chapter{Referanser til vurdering av stadium}
-
-\bigskip
-\bigskip
 
 \begin{longtable}{rp{10cm}lcc}
   \caption[Vurderingspunkter for stadium \registernavn]
@@ -1351,59 +1378,35 @@ registeret}\label{sec:brures}
   \endfoot 	 
   \hline 	 
   \endlastfoot
-   & \textbf{Stadium 2} & & \\
-  1 & Er i drift og samler data fra HF i alle helseregioner
-    & \ref{cha:res} & \CheckedBox
-    & \Square \\
-  2 & Presenterer resultater på nasjonalt nivå & \ref{cha:res} & \Square
-    & \Square \\
-  3 & Har en konkret plan for gjennomføring av dekningsgradsanalyser
-    & \ref{sec:met} & \Square & \Square \\
-  4 & Har en konkret plan for gjennomføring av analyser og løpende
-      rapportering av resultater på sykehusnivå tilbake til deltakende
-      enheter & \ref{sec:resfag} & \Square& \Square \\
-      5 & Har en oppdatert plan for videre utvikling av registeret
-      & Del \ref{par:for} & \Square& \Square \\
-   & & & \\
 
-   & \textbf{Stadium 3} & & \\
-  6 & Kan redegjøre for registerets datakvalitet
-    & \ref{sec:sik}, \ref{sec:metval}, \ref{sec:valdat} & \Square& \Square \\
-  7 & Har beregnet dekningsgrad mot uavhengig datakilde
-    & \ref{sec:met}, \ref{sec:endek}, \ref{sec:obs} & \Square& \Square \\
-  8 & Registrerende enheter kan få utlevert egne aggregerte og nasjonale
-      resultater
-    & \ref{sec:resfag} & \Square & \Square \\
-  9 & Presenterer deltakende enheters etterlevelse av de viktigste
-      nasjonale retningslinjer der disse finnes
-    & \ref{sec:retbru} & \Square & \Square \\
-  10 & Har identifisert kliniske forbedringsområder basert på analyser fra
-       registeret & \ref{sec:ide} & \Square & \Square \\
-  11 & Brukes til klinisk kvalitetsforbedringsarbeid
-    & \ref{sec:brures}, \ref{sec:evakva} & \Square & \Square \\
-  12 & Resultater anvendes vitenskapelig & \ref{sec:vitarb} & \Square
-    & \Square \\
-  13 & Presenterer resultater for PROM/PREM & \ref{sec:pasutk} & \Square
-    & \Square \\
-  14 & Har en oppdatert plan for videre utvikling av registeret
-    & Del \ref{par:for} & \Square & \Square \\
-   & & & \\
+  & \textbf{Stadium 2} & & \\
+  1 & Er i drift og samler data fra HF i alle helseregioner & \ref{cha:res} & \Square & \CheckedBox \\
+  2 & Presenterer resultater på nasjonalt nivå & \ref{cha:res} & \Square & \CheckedBox \\
+  3 & Har en konkret plan for gjennomføring av dekningsgradsanalyser & \ref{sec:met} & \CheckedBox & \Square \\
+  4 & Har en konkret plan for gjennomføring av analyser og løpende rapportering av resultater på sykehusnivå tilbake til deltakende enheter & \ref{sec:resfag} & \CheckedBox & \Square \\
+  5 & Har en oppdatert plan for videre utvikling av registeret & Del \ref{par:for} & \CheckedBox & \Square \\
+  & & & \\
 
-   & \textbf{Stadium 4} & & \\
-  15 & Kan dokumentere registerets datakvalitet gjennom valideringsanalyser
-    & \ref{sec:valdat} & \Square & \Square \\
-  16 & Presenterer oppdatert dekningsgradsanalyse hvert 2. år
-    & \ref{sec:met}, \ref{sec:endek}, \ref{sec:obs} & \Square & \Square \\
-  17 & Har dekningsgrad over 80\% & \ref{sec:obs} & \Square & \Square \\
-  18 & Registrerende enheter har løpende (on-line) tilgang til oppdaterte egne
-       og nasjonale resultater & \ref{sec:resfag}, \ref{sec:off} & \Square
-    & \Square \\
-  19 & Presentere resultater på sosial ulikhet i helse & \ref{sec:sosdem}
-    & \Square & \Square \\
-  20 & Resultater fra registeret er tilpasset og tilgjengelig for pasienter
-    & \ref{sec:respas} & \Square & \Square \\
-  21 & Kunne dokumentere at registeret har ført til kvalitetsforbedring/endret
-       klinisk praksis & \ref{sec:evakva} & \Square& \Square \\
+  & \textbf{Stadium 3} & & \\
+  6 & Kan redegjøre for registerets datakvalitet & \ref{sec:sik}, \ref{sec:metval}, \ref{sec:valdat} & \Square & \CheckedBox \\
+  7 & Har beregnet dekningsgrad mot uavhengig datakilde & \ref{sec:met}, \ref{sec:endek}, \ref{sec:obs} & \Square & \CheckedBox \\
+  8 & Registrerende enheter kan få utlevert egne aggregerte og nasjonale resultater & \ref{sec:resfag} & \Square & \CheckedBox \\
+  9 & Presenterer deltakende enheters etterlevelse av de viktigste nasjonale retningslinjer der disse finnes & \ref{sec:retbru} & \Square & \CheckedBox \\
+  10 & Har identifisert kliniske forbedringsområder basert på analyser fra registeret & \ref{sec:ide} & \CheckedBox & \Square \\
+  11 & Brukes til klinisk kvalitetsforbedringsarbeid & \ref{sec:brures}, \ref{sec:evakva} & \CheckedBox & \Square \\
+  12 & Resultater anvendes vitenskapelig & \ref{sec:vitarb} & \Square & \CheckedBox \\
+  13 & Presenterer resultater for PROM/PREM & \ref{sec:pasutk} & \Square & \CheckedBox \\
+  14 & Har en oppdatert plan for videre utvikling av registeret & Del \ref{par:for} & \CheckedBox & \Square \\
+  & & & \\
+
+  & \textbf{Stadium 4} & & \\
+  15 & Kan dokumentere registerets datakvalitet gjennom valideringsanalyser & \ref{sec:valdat} & \Square & \CheckedBox \\
+  16 & Presenterer oppdatert dekningsgradsanalyse hvert 2. år & \ref{sec:met}, \ref{sec:endek}, \ref{sec:obs} & \Square & \CheckedBox \\
+  17 & Har dekningsgrad over 80\% & \ref{sec:obs} & \CheckedBox & \Square \\
+  18 & Registrerende enheter har løpende (online) tilgang til oppdaterte egne og nasjonale resultater & \ref{sec:resfag}, \ref{sec:off} & \Square & \CheckedBox \\
+  19 & Presentere resultater på sosial ulikhet i helse & \ref{sec:sosdem} & \Square & \CheckedBox \\
+  20 & Resultater fra registeret er tilpasset og tilgjengelig for pasienter & \ref{sec:respas} & \Square & \CheckedBox \\
+  21 & Kunne dokumentere at registeret har ført til kvalitetsforbedring/endret klinisk praksis & \ref{sec:evakva} & \Square & \CheckedBox \\
   \label{tab:sta} 	 
 \end{longtable}
 
