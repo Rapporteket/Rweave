@@ -23,6 +23,7 @@
 library(car)             # recoding variables
 library(xtable)          # LaTeX tables
 library(RColorBrewer)    # intellingent colour palettes
+library(ggplot2)
 brew <- function(
     N = 3 ,
     alpha = "AA" ) paste(
@@ -238,31 +239,85 @@ dat$ADMISSION_ER_DATE <- as.Date( dat$ADMISSION_ER_DATE , "%Y-%m-%d")
 dat$INTERDAT <- as.Date( dat$INTERDAT , "%Y-%m-%d")
 
    ### month variable for agregation
-dat$Month <- format(dat$INTERDAT , "%y-%m")
+dat$Month <- factor( format(dat$INTERDAT , "%m"))
 
-   ### calculate date diff in days
-dat$dTsymp2inter <- as.numeric(dat$INTERDAT - dat$SYMPTOM_ONSET_DATE ) ## Time from syptom onset to intervention
-dat$dTsymp2ad <- as.numeric(dat$HOSP_ADMISSIONDATE - dat$SYMPTOM_ONSET_DATE ) ## Time from symptom onset to admission @ PCI hospital
-dat$dTsymp2ref <- as.numeric(dat$REFERRING_HOSP_ADMISSIONDATE - dat$SYMPTOM_ONSET_DATE ) ## Time from symptom onset to admission @ referring hospital
-dat$dTref2ad <-  as.numeric(dat$HOSP_ADMISSIONDATE - dat$REFERRING_HOSP_ADMISSIONDATE ) ## Time from admission @ referring hospital to admission @ PCI hospital
-dat$dTref2inter <- as.numeric(dat$INTERDAT - dat$REFERRING_HOSP_ADMISSIONDATE ) ## Time from admission@referring hospital to intervention
-dat$dTad2inter <- as.numeric(dat$INTERDAT - dat$HOSP_ADMISSIONDATE ) ## Time from admission @ PCI center to intervention
+dat$DaysFromSymptomToProcedure <- as.numeric(
+    dat$INTERDAT - dat$SYMPTOM_ONSET_DATE )
+
+dat$DaysFromSymptomToPCIcenterAdmission <- as.numeric(
+    dat$HOSP_ADMISSIONDATE - dat$SYMPTOM_ONSET_DATE )
+
+dat$DaysFromSymptomToIndexAdmission <- as.numeric(
+    dat$REFERRING_HOSP_ADMISSIONDATE - dat$SYMPTOM_ONSET_DATE )
+
+dat$DaysFromIndexAdmissionToProcedure <- as.numeric(
+    dat$INTERDAT - dat$REFERRING_HOSP_ADMISSIONDATE )
+
+dat$DaysFromPCIcenterAdmissionToProcedure <- as.numeric(
+    dat$INTERDAT - dat$HOSP_ADMISSIONDATE )
+
 
    ## some have missing symptom onset date, some have negative and some onset year 2001, 2003 !!
    ## crude exclusion -> fix later :P
-dat$dTref2ad [ dat$dTref2ad < 0 ] <- NA
-dat$dTsymp2inter [ dat$dTsymp2inter < 0 ] <- NA
-dat$dTsymp2ad [ dat$dTsymp2ad < 0 ] <- NA
-dat$dTsymp2ref [ dat$dTsymp2ref < 0 ] <- NA
-dat$dTref2inter [ dat$dTref2inter < 0 ] <- NA
-dat$dTad2inter [ dat$dTad2inter < 0 ] <- NA
+dat$DaysFromSymptomToProcedure[ which(
+    dat$DaysFromSymptomToProcedure < 0 )] <- NA
 
-dat$dTref2ad [ dat$dTref2ad > 100 ] <- NA
-dat$dTsymp2inter [ dat$dTsymp2inter > 100 ] <- NA
-dat$dTsymp2ad [ dat$dTsymp2ad > 100 ] <- NA
-dat$dTsymp2ref [ dat$dTsymp2ref > 100 ] <- NA
-dat$dTref2inter [ dat$dTref2inter > 100 ] <- NA
-dat$dTad2inter [ dat$dTad2inter > 100 ] <- NA
+dat$DaysFromSymptomToPCIcenterAdmission[ which(
+    dat$DaysFromSymptomToPCIcenterAdmission < 0 )] <- NA
+
+dat$DaysFromSymptomToIndexAdmission[ which(
+    dat$DaysFromSymptomToIndexAdmission < 0 )] <- NA
+
+dat$DaysFromIndexAdmissionToProcedure[ which(
+    dat$DaysFromIndexAdmissionToProcedure < 0 )] <- NA
+
+dat$DaysFromPCIcenterAdmissionToProcedure[ which(
+    dat$DaysFromPCIcenterAdmissionToProcedure < 0 )] <- NA
+
+dat$DaysFromSymptomToProcedure[ which(
+    dat$DaysFromSymptomToProcedure > 100 )] <- NA
+
+dat$DaysFromSymptomToPCIcenterAdmission[ which(
+    dat$DaysFromSymptomToPCIcenterAdmission > 100 )] <- NA
+
+dat$DaysFromSymptomToIndexAdmission[ which(
+    dat$DaysFromSymptomToIndexAdmission > 100 )] <- NA
+
+dat$DaysFromIndexAdmissionToProcedure[ which(
+    dat$DaysFromIndexAdmissionToProcedure > 100 )] <- NA
+
+dat$DaysFromPCIcenterAdmissionToProcedure[ which(
+    dat$DaysFromPCIcenterAdmissionToProcedure > 100 )] <- NA
+
+   ### define an auxillary summary function for the date diff variables
+describe <- function(X){
+    DTAB <- c(
+        as.character(sum(!is.na(X))) ,
+        sum(is.na(X)) ,
+        length(na.exclude(unique(X))) ,
+        round(x = mean( X , na.rm = TRUE ) ,
+              digits = 1 ) ,
+        min( X , na.rm = TRUE ) ,
+        max( X , na.rm = TRUE ) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .25 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .50 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .75 ) ,
+              digits = 1))
+    attr( DTAB , "names") <- c("n",
+                               "missing",
+                               "unique",
+                               "mean",
+                               "minimum",
+                               "maximum",
+                               ".25",
+                               ".50",
+                               ".75")
+    return(DTAB)}
 
 
    ### Defining some subsets of data -> resuling in some redundant data matrices, but savin a lot of indexing later on
@@ -368,17 +423,55 @@ indi-kator-er styrings-gruppe}
 
 
 
-
-
-
-
-
-
-
 \chapter{Resultater}\label{cha:res}
 \onecolumn
 
+Resultat-rapporteringen er nokså grunnleggende i den foreliggende første versjonen av årsrapporten. Enkle tabeller og figurer omtaler totalt antall og prosent andel gjennomførte angiografi og PCI etter PCI senter og følgende utvalgte registrerings kategorier:
 
+\begin{itemize}
+  \item{Hastegrad (``Planlagt'', ``Akutt'', ``Subakutt'')}
+  \item{Prosedyretype (``Angio'', ``PCI'', ``Angio+PCI'')}
+  \item{Primær beslutning forenklet (``Ingen behandling'', ``Fortsatt medisinsk behandling'', ``Diskusjon/uavklart'', ``PCI elektiv'', ``PCI ad hoc'',``Annet'')}
+  \item{Primær beslutning detaljert (``Ingen behandling'', ``Fortsatt medisinsk behandling'', ``Fortsatt utredning'', ``Klaffeoperasjon'', ``ACB-operasjon'', ``Klaffe- + ACB-operasjon'', ``PCI+ACB-operasjon'', ``PCI elektiv'', ``PCI ad hoc'', ``Henvisning til annet sykehus'', ``Annet operativt inngrep'')}
+  \item{Vakttid (``Planlagt på dagtid'', ``Akuttilfelle på dagtid'', ``Akutfall på vakttid'', ``Subakuttilfelle på dagtid'', ``Subakuttilfelle på vakttid'')}
+  \item{Indikasjon (``SAP'', ``UAP'', ``NSTEMI'', ``STEMI'', ``Annet'')}
+  \item{funn (``1-kar ikke HS'', ``2-kar ikke HS'', ``3-kar ikke HS'', ``HS'', ``HS + 1-kar'', ``HS + 2-kar'', ``HS + 3-kar'', ``Ikke konklusiv'', ``Normalt/Ateromatose'')}
+\end{itemize}
+
+Manglende registreringer er oppført i alle tabeller som et enkelt mål for registrerings kvaliteten.
+
+Opperativ i 2013 var kun Haukeland universitetssjukehus (HUS) og Universitetssykehuset Nord-Norge (UNN, fra 01. mai), se figur \ref{fig:N:SHUS}. Prosentandel prosedyrer i registrerings kategorier var nokså sammenlignbart, untatt et 9,4\% høyere andel stabile pasienter ved HUS (tabell \ref{tab:pros:ind}) som samensvarer med et 7,5\% lavere andel normale funn (tabell \ref{tab:pros:funn}).
+
+
+\begin{figure}
+  \centering
+  \caption{Antall prosedyrer etter måned og PCI senter}
+  \label{fig:N:SHUS}
+<<echo=FALSE , results = tex>>=
+file = "N_procedures_month_PCIcenter.pdf"
+pdf(file , width = 12 , height = 8 , pointsize = 12)
+
+op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,14.1) , bg = "#EEEEEE")
+pal <- brew( length(levels(dat$SHUS)))
+barplot(
+    height = xtabs(
+        formula = ~ factor(SHUS) + Month ,
+        data = dat) ,
+    las = 1 ,
+    xlab = "Måned" ,
+    ylab = "Antall" ,
+    col = pal ,
+    space = 0.2 ,
+    border = FALSE)
+legend( "right" , inset = -.32, bty = "n" , horiz = FALSE , fill = pal, legend = unique(dat$SHUS) , cex = 1)
+par(op)
+     
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+
+\clearpage
 
 \begin{figure}
   \centering
@@ -1020,6 +1113,7 @@ print(
                 margin = 1 ) ,
             margin = 1) ,
         digits = 1 ,
+        label = "tab:pros:ind" ,
         caption = "Prosent andel prosedyrer etter indikasjon og PCI senter") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
@@ -1031,7 +1125,6 @@ print(
 
 
    %%% FYND
-
 
 \begin{figure}
   \centering
@@ -1139,7 +1232,8 @@ print(
                 margin = 1 ) ,
             margin = 1 ) ,
         digits = 1 ,
-        caption = "Prosent andel prosedyrer etter funn og PCI senter") ,
+        caption = "Prosent andel prosedyrer etter funn og PCI senter" ,
+        label = "tab:pros:funn") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
@@ -1149,46 +1243,40 @@ print(
 
 
 
-   %%%  R.DIATRYCK, R.DIADOP, R.DIAIVUS
-
-
-\begin{tiny}
 <<echo = FALSE , results = tex>>=
-FFR <- xtabs( ~ SHUS + DIATRYCK , data = dat )[ , 2]
-FFR <- data.frame( SHUS = attr( x = FFR , which = "names") , FFR = FFR )
 
-## ingen Doppler registrert
-#Doppler <- xtabs( ~ SHUS + DIADOP , data = dat )[ , 2]
-#Doppler <- data.frame( SHUS = attr( x = Doppler , which = "names") , Doppler = Doppler )
+L <- lapply(
+    X = split(
+        x = dat.NSTEMI$DaysFromIndexAdmissionToProcedure ,
+        f = list(
+            dat.NSTEMI$SHUS ,
+            dat.NSTEMI$HenvisningsStatus)) ,
+    FUN = summary)
 
-IVUS <- xtabs( ~ SHUS + DIAIVUS , data = dat )[ , 2]
-IVUS <- data.frame( SHUS = attr( x = IVUS , which = "names") , IVUS = IVUS )
+M <- matrix(
+    signif(
+        unlist(L) ,
+        digits = 3),
+    nrow = 4 ,
+    byrow = TRUE)
 
-Tillegg <- merge( FFR , IVUS , all = TRUE )
+colnames(M) <- attr(L[[1]] , "names")
+rownames(M) <- attr(L , "names")
 
 print(
     xtable(
-        Tillegg ,
-        digits = 0 , caption = "Antall tilleggsundersøkelser etter PCI senter") ,
-    booktabs = TRUE ,
-    rotate.colnames = FALSE)
+        x = M ,
+        caption = "Antall dager fra indeks innleggelse til prosedyre etter henvisnings status og PCI senter" ,
+        digits = c(0,0,0,0,2,0,0,0)) ,
+    booktabs = TRUE)
 
-@
-\end{tiny}
-
-
-
-
-
-
+@ 
 
 
 
 \clearpage
 \chapter{Metoder for fangst av data}\label{cha:metoder}
 \twocolumn
-
-
 
 
 \chapter{Metodisk kvalitet}\label{cha:kva}
