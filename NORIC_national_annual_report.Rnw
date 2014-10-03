@@ -1,5 +1,5 @@
 
-\documentclass[norsk, a4paper, twocolumn]{report}
+\documentclass[norsk, a4paper]{report}
 
 \usepackage[utf8x]{inputenc}
 \usepackage{babel}
@@ -33,6 +33,7 @@ brew <- function(
         alpha ,
         sep = "")
 
+   ### specifying the internal ID of all local NORIC
 reshIDBergen <- 102966
 reshIDStavanger <- 105502
 reshIDSoerlandet <- 114150
@@ -41,22 +42,23 @@ reshIDUllevaal <- 109880
 reshIDFeiring <- 106944
 reshIDStOlav <- 104284
 reshIDUNN <- 101619
+CONF <- yaml::yaml.load_file('../dbConfig.yml') ### getting the db credentials from the YAML conf file
 
 library(RMySQL)          # accessing the database
 
+   ### define an auxilliary function to access the local databases.
 GetDataLastYear <- function(reshID){
-    conf <- yaml::yaml.load_file('../dbConfig.yml')
     con <- dbConnect(
         dbDriver("MySQL") ,
-        dbname = unlist( conf[[paste("noric" , reshID , sep = "")]]["name"]) ,
-        host = unlist( conf[[paste("noric" , reshID , sep = "")]]["host"]) ,
-        user = unlist( conf[[paste("noric" , reshID , sep = "")]]["user"]) ,
-        password = unlist( conf[[paste("noric" , reshID , sep = "")]]["pass"]) )
+        dbname = unlist( CONF[[paste("noric" , reshID , sep = "")]]["name"]) ,
+        host = unlist( CONF[[paste("noric" , reshID , sep = "")]]["host"]) ,
+        user = unlist( CONF[[paste("noric" , reshID , sep = "")]]["user"]) ,
+        password = unlist( CONF[[paste("noric" , reshID , sep = "")]]["pass"]) )
     query <- "SELECT M.MCEID, M.PARENT_MCEID, M.INTERVENTION_TYPE, M.MCETYPE, R.INTERDAT, R.JOURTID, R.REGTYP, R.INDIKATION, R.FYND, R.DIATRYCK, R.DIADOP, R.DIAIVUS, R.PRIMBES, I.HOSP_ADMISSIONDATE, I.TRANSFERREDPATIENT, I.TRANSFERREDFROM, H.NAME AS TRANSFERREDFROMchar, I.REFERRING_HOSP_ADMISSIONDATE, I.KILLIPKLASS, I.SYMPTOM_ONSET_DATE, I.SYMPTOM_ONSET_TIME, I.SYMPTOM_ONSET_MISSING, I.PREHOSPITAL_ECG_DATE, I.PREHOSPITAL_ECG_TIME, I.PREHOSPITAL_ECG_MISSING, I.THROMB_GIVEN_DATE, I.THROMB_GIVEN_TIME, I.ADMISSION_ER_DATE, I.ADMISSION_ER_TIME FROM mce M INNER JOIN regangio R ON M.MCEID=R.MCEID INNER JOIN initialcare I ON M.MCEID=I.MCEID LEFT JOIN hospital H ON I.TRANSFERREDFROM=H.ID WHERE YEAR(R.INTERDAT)=YEAR(CURRENT_DATE)-1;"
     dat <- dbGetQuery( con , query )
     con <- dbDisconnect(con)
     con <- dbUnloadDriver(dbDriver("MySQL"))
-    dat$SHUS <- unlist( conf [[paste("noric" , reshID , sep = "")]]["disp"])
+    dat$SHUS <- unlist( CONF [[paste("noric" , reshID , sep = "")]]["disp"])
     return(dat)}
 
 dat <- rbind(
@@ -76,13 +78,13 @@ dat$Hastegrad <- addNA( factor( addNA(dat$MCETYPE) , exclude = NULL , labels = c
 dat$Vakttid <- addNA( factor( dat$JOURTID , labels =  c(
 'Planlagt på dagtid',
 'Akuttilfelle på dagtid',
-'Akutfall på vakttid',
+'Akuttilfelle på vakttid',
 'Subakuttilfelle på dagtid',
 'Subakuttilfelle på vakttid')))
 
 
 dat$Indikasjon <- recode( dat$INDIKATION ,"
-1='SAP';
+1='SCAD';
 2='UAP';
 3='NSTEMI';
 4:6='STEMI';
@@ -91,7 +93,7 @@ else='Annet'
 ")
 
 dat$Indikasjon <- addNA( factor( dat$Indikasjon , levels = c(
-'SAP',
+'SCAD',
 'UAP',
 'NSTEMI',
 'STEMI',
@@ -227,16 +229,24 @@ else = "Direkte" # this should be NA
 ## the query gets TRANSFERREDFROMchar with the hospital names
 ## there might be a variable which denotes the local hospital in order to define "Direkte"
 
-dat$DirekteTilPCI <- as.factor( dat$HenvistFra == "Direkte" )
+dat$DirekteTilPCI <- dat$HenvistFra == "Direkte"
 dat$HenvisningsStatus <- factor( x = (dat$HenvistFra == "Direkte") , labels = c("Henvist","Direkte"))
 
    ### reformat time variables from char to POSIX
 dat$SYMPTOM_ONSET_DATE <- as.Date( dat$SYMPTOM_ONSET_DATE , "%Y-%m-%d")
-dat$REFERRING_HOSP_ADMISSIONDATE[ dat$HenvistFra == "Direkte" ] <- dat$HOSP_ADMISSIONDATE[ dat$HenvistFra == "Direkte" ] ## update admission date for directly admitted
 dat$REFERRING_HOSP_ADMISSIONDATE <- as.Date( dat$REFERRING_HOSP_ADMISSIONDATE , "%Y-%m-%d")
 dat$HOSP_ADMISSIONDATE <- as.Date( dat$HOSP_ADMISSIONDATE , "%Y-%m-%d")
 dat$ADMISSION_ER_DATE <- as.Date( dat$ADMISSION_ER_DATE , "%Y-%m-%d")
 dat$INTERDAT <- as.Date( dat$INTERDAT , "%Y-%m-%d")
+
+
+## update admission date for directly admitted
+directPCIC <- which( dat$HenvistFra == "Direkte" )
+dat$REFERRING_HOSP_ADMISSIONDATE[ directPCIC ] <- dat$HOSP_ADMISSIONDATE[ directPCIC ] 
+stillNA <- which(is.na(dat$REFERRING_HOSP_ADMISSIONDATE))
+dat$REFERRING_HOSP_ADMISSIONDATE[ stillNA ] <- dat$ADMISSION_ER_DATE[ stillNA ]
+AdmissionBeforeSymptom <- which( dat$REFERRING_HOSP_ADMISSIONDATE<dat$SYMPTOM_ONSET_DATE)
+dat$REFERRING_HOSP_ADMISSIONDATE[ AdmissionBeforeSymptom ] <- dat$SYMPTOM_ONSET_DATE[ AdmissionBeforeSymptom ]
 
    ### month variable for agregation
 dat$Month <- factor( format(dat$INTERDAT , "%m"))
@@ -275,19 +285,19 @@ dat$DaysFromPCIcenterAdmissionToProcedure[ which(
     dat$DaysFromPCIcenterAdmissionToProcedure < 0 )] <- NA
 
 dat$DaysFromSymptomToProcedure[ which(
-    dat$DaysFromSymptomToProcedure > 100 )] <- NA
+    dat$DaysFromSymptomToProcedure > 30 )] <- NA
 
 dat$DaysFromSymptomToPCIcenterAdmission[ which(
-    dat$DaysFromSymptomToPCIcenterAdmission > 100 )] <- NA
+    dat$DaysFromSymptomToPCIcenterAdmission > 30 )] <- NA
 
 dat$DaysFromSymptomToIndexAdmission[ which(
-    dat$DaysFromSymptomToIndexAdmission > 100 )] <- NA
+    dat$DaysFromSymptomToIndexAdmission > 30 )] <- NA
 
 dat$DaysFromIndexAdmissionToProcedure[ which(
-    dat$DaysFromIndexAdmissionToProcedure > 100 )] <- NA
+    dat$DaysFromIndexAdmissionToProcedure > 30 )] <- NA
 
 dat$DaysFromPCIcenterAdmissionToProcedure[ which(
-    dat$DaysFromPCIcenterAdmissionToProcedure > 100 )] <- NA
+    dat$DaysFromPCIcenterAdmissionToProcedure > 30 )] <- NA
 
    ### define an auxillary summary function for the date diff variables
 describe <- function(X){
@@ -352,22 +362,32 @@ dat.NSTEMI.subakutt.direkte <- subset( dat , subset = (Indikasjon == "NSTEMI") &
 
 
 % Sett registerets navn
-\def \registernavn {\textit{NORIC}}
+\def \registernavn {\textit{Norsk register for invasiv kardiologi (NORIC)}}
 
 
 % tittelting
 \title{\registernavn \\ \textbf{Årsrapport for \textit{2013} med \\
 plan for forbedringstiltak}}
 
-\author[1,2]{Siren Hovland}
-\author[1,2]{Reinhard Seifert}
-\author[1,2]{Svein Rotevatn}
-\affil[1]{Hjerteavdelingen, Haukeland universitetssykehus, Bergen}
-\affil[2]{NORIC}
+\author[$\dag$]{Siren Hovland\thanks{Daglig leder: \texttt{siren.hovland@helse-bergen.no}}}
+\author[$\dag$]{Reinhard Seifert\thanks{Statistiker: \texttt{reinhard.seifert@helse-bergen.no}}}
+\author[$\dag$]{Janne Dyngeland\thanks{Registerkoordinator: \texttt{janne.dyngeland@helse-bergen.no}}}
+\author[$\dag$]{Svein Rotevatn\thanks{Faglig leder: \texttt{svein.rotevatn@helse-bergen.no}}}
+\affil[$\dag$]{NORIC\\Norsk register for invasiv kardiologi \\
+Haukeland universitetssjukehus \\
+Hjerteavdelingen \\
+Postboks 1400 \\
+Jonas Lies vei 65 \\
+5021 Bergen \\
+epost \texttt{noric@helse-bergen.no} \\
+Telefon 55 97 22 20}
 
 \renewcommand\Authands{ og }
 \renewcommand\Authfont{\scshape}
 \renewcommand\Affilfont{\itshape\small}
+
+
+
 
 
 % overstyre mulige ord-deling-er
@@ -377,65 +397,64 @@ indi-kator-er styrings-gruppe}
 
 
 
-
 \begin{document}
 
 \maketitle
-
-\onecolumn
-
 
 
 \tableofcontents
 
 
-
-
 \part{Årsrapport}\label{par:rap}
 \thispagestyle{empty}
-\twocolumn
-
 
 
 \chapter{Sammendrag}
-
-
+Norsk register for invasiv kardiologi (NORIC) ble etablert som nasjonalt medisinsk kvalitetsregister i 2012. NORIC inngår som et av flere kvalitetsregistre knyttet til Hjerte- og karregisteret ved det nasjonale folkehelseinstitutt. Registeret omfatter invasive kardiologiske prosedyrer som koronar angiografi og perkutan koronar intervensjon (PCI), og har også modul for perkutan hjerteklaffbehandling og CT-angiografi.
+Programvaren for registrering av pasientdata ble tatt i bruk ved Haukeland universitetssjukehus (HUS) 1.januar 2013 og ved Universitetssykehuset Nord-Norge (UNN) fra 1. mai 2013. Registerplattformen er senere (2014) blitt implementert ved ytterligere 4 av landets øvrige invasive sentre, mens 2 sykehus ikke har startet ennå.
+Resultatene for 2013 omfatter derfor bare UNN og HUS, og viser stor grad av samsvar når det gjelder andel av pasienter som får utført PCI (41 \%). Andelen av planlagte (elektive) prosedyrer er høyere ved UNN (48,7 \%) enn ved HUS (40,2 \%), mens andelen subakutte prosedyrer er tilsvarende lavere ved UNN (39 \%) sammenlignet med HUS (46 \%). Andelen av pasienter med indikasjon stabil koronarsykdom er høyere ved UNN (38,6 \%) enn ved HUS (29,2 \%), mens andelen ustabil angina er lavere ved UNN (14.4 \%) enn ved HUS (21 \%). Registreringene viser at det er betydelige forskjeller i bruk av supplerende intrakoronar diagnostikk ved de to sykehusene, med større bruk av intravaskulær ultralyd (IVUS) og måling av fractional flow reserve (FFR) ved HUS. 
+Analyser av ventetid for pasienter med non-ST-segment-elevation myocardial infarction (NSTEMI) viser betydelig forskjeller mellom de to sykehusene med vesentlig lengre ventetid ved HUS enn ved UNN. For pasienter som blir innlagt direkte til disse sykehusene er median ventetid 3 døgn ved HUS og 1 døgn ved UNN. For pasienter som først blir innlagt ved annet sykehus er median ventetid ved HUS 5 døgn og 3 døgn ved UNN. Spesielt ved HUS er ventetiden vesentlig lengre enn det som er anbefalt i internasjonale retningslinjer.
 
 
 \chapter{Registerbeskrivelse}\label{cha:reg}
 
 
-
 \section{Bakgrunn og formål}
 
 \subsection{Bakgrunn for registeret}\label{sec:bak}
+Norsk register for invasiv kardiologi (NORIC) er et nasjonalt kvalitetsregister som omfatter invasive kardiologiske prosedyrer som blir utført ved sykehus i Norge. Det innbefatter i første rekke undersøkelser og behandlingsformer som koronar angiografi og PCI der tilgangen til hjertet er perkutan, til forskjell fra åpen kirurgisk tilgang. Registeret har også moduler for perkutan hjerteklaff-behandling og for koronar CT-angiografi. Registeret omfatter ikke elektrofysiologiske undersøkelser og behandlinger, og ikke pacemakerbehandling. Forventet volum av prosedyrer er knapt 30000 årlige angiografier og 12000 PCIer.  
 
 \subsection{Registerets formål}\label{sec:for}
-
+Overordnet formål med registeret er gitt ved Hjerte- og karregisterforskriften §1-2: 
+``Formålet med Hjerte- og karregisteret er å bidra til bedre kvalitet på helsehjelpen til personer med hjerte- og karsykdommer. Opplysninger i registeret skal benyttes til forebyggende arbeid, kvalitetsforbedring og helseforskning. Registeret skal også utgjøre et grunnlag for styring og planlegging av helsetjenester rettet mot personer med hjerte- og karsykdommer, overvåkning av nye tilfeller og forekomst av slike sykdommer i befolkningen''.
 
 \section{Juridisk hjemmelsgrunnlag}\label{cha:jur}
+Lovhjemmel for registeret er Helseregisterloven med tilknyttet forskrift: Forskrift om innsamling og behandling av helseopplysninger i Nasjonalt register over hjerte- og karlidelser (Hjerte- og karregisterforskriften). 
 
 \section{Faglig ledelse og databehandlingsansvar}\label{cha:led}
+Det er ansatt en faglig leder i 20 \% stilling som er invasiv kardiolog. I tillegg er det ansatt daglig leder (60\%), registerkoordinator (40\%) og statistiker (50\%). Norsk register for invasiv kardiologi er lagt til Hjerteavdelingen ved Haukeland universitetssjukehus. Det ble inngått en skriftlig databehandler avtale mellom Helse Bergen HF og Nasjonalt folkehelseinstitutt den 10. oktober 2013.
 
-\subsection{Aktivitet i\\styringsgruppe/referansegruppe}
+\subsection{Aktivitet i styringsgruppe/referansegruppe}
+Registeret har etablert en nasjonal faglig styringsgruppe bestående av én representant fra hvert av de sykehusene som utfører prosedyrer omfattet av registeret. I 2013 ble det avholdt to møter som i hovedsak omhandlet gjennomgang av variabler samt plan for oppstart av pasientregistreringer på de resterende 6 av totalt 8 invasive sentre.  
+
 
 
 
 
 
 \chapter{Resultater}\label{cha:res}
-\onecolumn
 
-Resultat-rapporteringen er nokså grunnleggende i den foreliggende første versjonen av årsrapporten. Enkle tabeller og figurer omtaler totalt antall og prosent andel gjennomførte angiografi og PCI etter PCI senter og følgende utvalgte registrerings kategorier:
+
+\section{Innledning}
+Resultat-rapporteringen er nokså grunnleggende i den foreliggende første versjonen av årsrapporten. Enkle tabeller og figurer omtaler totalt antall og prosentandel gjennomførte angiografi og PCI etter PCI senter og følgende utvalgte registrerings kategorier:
 
 \begin{itemize}
   \item{Hastegrad (``Planlagt'', ``Akutt'', ``Subakutt'')}
   \item{Prosedyretype (``Angio'', ``PCI'', ``Angio+PCI'')}
-  \item{Primær beslutning forenklet (``Ingen behandling'', ``Fortsatt medisinsk behandling'', ``Diskusjon/uavklart'', ``PCI elektiv'', ``PCI ad hoc'',``Annet'')}
-  \item{Primær beslutning detaljert (``Ingen behandling'', ``Fortsatt medisinsk behandling'', ``Fortsatt utredning'', ``Klaffeoperasjon'', ``ACB-operasjon'', ``Klaffe- + ACB-operasjon'', ``PCI+ACB-operasjon'', ``PCI elektiv'', ``PCI ad hoc'', ``Henvisning til annet sykehus'', ``Annet operativt inngrep'')}
+  \item{Primær beslutning (``Ingen behandling'', ``Fortsatt medisinsk behandling'', ``Diskusjon/uavklart'', ``PCI elektiv'', ``PCI ad hoc'',``Annet'')}
   \item{Vakttid (``Planlagt på dagtid'', ``Akuttilfelle på dagtid'', ``Akutfall på vakttid'', ``Subakuttilfelle på dagtid'', ``Subakuttilfelle på vakttid'')}
-  \item{Indikasjon (``SAP'', ``UAP'', ``NSTEMI'', ``STEMI'', ``Annet'')}
-  \item{funn (``1-kar ikke HS'', ``2-kar ikke HS'', ``3-kar ikke HS'', ``HS'', ``HS + 1-kar'', ``HS + 2-kar'', ``HS + 3-kar'', ``Ikke konklusiv'', ``Normalt/Ateromatose'')}
+  \item{Indikasjon (``SCAD'', ``UAP'', ``NSTEMI'', ``STEMI'', ``Annet'')}
+  \item{funn (``1-kar ikke hovedstamme stenose (HS)'', ``2-kar ikke HS'', ``3-kar ikke HS'', ``HS'', ``HS + 1-kar'', ``HS + 2-kar'', ``HS + 3-kar'', ``Ikke konklusiv'', ``Normalt/Ateromatose'')}
 \end{itemize}
 
 Manglende registreringer er oppført i alle tabeller som et enkelt mål for registrerings kvaliteten.
@@ -443,10 +462,13 @@ Manglende registreringer er oppført i alle tabeller som et enkelt mål for regi
 Opperativ i 2013 var kun Haukeland universitetssjukehus (HUS) og Universitetssykehuset Nord-Norge (UNN, fra 01. mai), se figur \ref{fig:N:SHUS}. Prosentandel prosedyrer i registrerings kategorier var nokså sammenlignbart, untatt et 9,4\% høyere andel stabile pasienter ved HUS (tabell \ref{tab:pros:ind}) som samensvarer med et 7,5\% lavere andel normale funn (tabell \ref{tab:pros:funn}).
 
 
-\begin{figure}
+
+\section{Antall registrerte prosedyrer}
+
+\begin{figure}[ht]
   \centering
-  \caption{Antall prosedyrer etter måned og PCI senter}
   \label{fig:N:SHUS}
+
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_month_PCIcenter.pdf"
 pdf(file , width = 12 , height = 8 , pointsize = 12)
@@ -465,17 +487,20 @@ barplot(
     border = FALSE)
 legend( "right" , inset = -.32, bty = "n" , horiz = FALSE , fill = pal, legend = unique(dat$SHUS) , cex = 1)
 par(op)
-     
 
 dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
 @
 
-\clearpage
+\caption{Antall prosedyrer etter måned og PCI senter}
+\end{figure}
 
-\begin{figure}
+
+\clearpage
+\subsection{\ldots etter hastegrad}
+  
+\begin{figure}[ht]
   \centering
-  \caption{Antall prosedyrer etter hastegrad og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_mcetype_PCIcenter.pdf"
 pdf(file , width = 12 , height = 8 , pointsize = 12)
@@ -487,9 +512,11 @@ legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend 
 par(op)
 
 dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
 @
-
+\caption{Antall prosedyrer etter hastegrad og PCI senter}
+\end{figure}
+  
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
@@ -505,9 +532,8 @@ print(
 \clearpage
 
 
-\begin{figure}
+\begin{figure}[ht]
   \centering
-  \caption{Prosent andel prosedyrer etter hastegrad og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "r_procedures_mcetype_PCIcenter.pdf"
 pdf(file , width = 12 , height = 8 , pointsize = 12)
@@ -536,8 +562,10 @@ legend(
 par(op)
 
 dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
 @
+\caption{Prosentandel prosedyrer etter hastegrad og PCI senter}
+\end{figure}
 
 
 \begin{tiny}
@@ -549,22 +577,21 @@ print(
                 formula = ~ SHUS + Hastegrad ,
                 data = dat) ,
             margin = 1) ,
-        digits = 1 , caption = "Prosent andel prosdyrer etter hastegrad og PCI senter") ,
+        digits = 1 , caption = "Prosentandel prosdyrer etter hastegrad og PCI senter") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
 \end{tiny}
 
+
+
 \clearpage
-
-
+\subsection{\ldots etter type (Angio/PCI)}
 
    %%% REGTYP
 
-
-\begin{figure}
+\begin{figure}[ht]
   \centering
-  \caption{Antall prosedyrer etter type og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_regtyp_PCIcenter.pdf"
 pdf(file , width = 12 , height = 8 , pointsize = 12)
@@ -593,9 +620,10 @@ legend(
     cex = 1)
 par(op)
 dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
 @
-
+  \caption{Antall prosedyrer etter type og PCI senter}
+\end{figure}
 
 
 \begin{tiny}
@@ -614,9 +642,8 @@ print(
 
 
 
-\begin{figure}
+\begin{figure}[ht]
   \centering
-  \caption{Prosent andel prosedyrer etter type og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "r_procedures_regtyp_PCIcenter.pdf"
 pdf(file , width = 12 , height = 8 , pointsize = 12)
@@ -645,9 +672,10 @@ legend(
 par(op)
 
 dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
 @
-
+  \caption{Prosentandel prosedyrer etter type og PCI senter}
+\end{figure}
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
@@ -658,23 +686,21 @@ print(
                 formula = ~ SHUS + Regtyp ,
                 data = dat) ,
             margin = 1) ,
-        digits = 1 , caption = "Prosent andel prosdyrer etter type og PCI senter") ,
+        digits = 1 , caption = "Prosentandel prosdyrer etter type og PCI senter") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
 \end{tiny}
 
+
+
 \clearpage
-
-
-
+\subsection{\ldots etter primær beslutning}
 
    %%% PRIMBES
 
-
-\begin{figure}
+\begin{figure}[ht]
   \centering
-  \caption{Antall prosedyrer etter primær beslutning og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_primbes_PCIcenter.pdf"
 pdf(file , width = 12 , height = 8 , pointsize = 12)
@@ -701,9 +727,10 @@ legend( "right" ,
 par(op)
 
 dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
 @
-
+  \caption{Antall prosedyrer etter primær beslutning og PCI senter}
+\end{figure}
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
@@ -720,9 +747,8 @@ print(
 \clearpage
 
 
-\begin{figure}
+\begin{figure}[ht]
   \centering
-  \caption{Prosent andel prosedyrer etter primær beslutning og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "r_procedures_primbes_PCIcenter.pdf"
 pdf(file , width = 12 , height = 8 , pointsize = 12)
@@ -754,10 +780,11 @@ dev.null <- dev.off()
 cat(
     "\n\n\\includegraphics[width=0.95\\textwidth]{" ,
     file ,
-    "}\n\\end{figure}\n",
+    "}\n",
     sep="")
 @
-
+  \caption{Prosentandel prosedyrer etter primær beslutning og PCI senter}
+\end{figure}
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
@@ -769,135 +796,21 @@ print(
                 margin = 1) ,
             margin = 1) ,
         digits = 1 ,
-        caption = "Prosent andel prosedyrer etter primær beslutning og PCI senter") ,
+        caption = "Prosentandel prosedyrer etter primær beslutning og PCI senter") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
 \end{tiny}
 
-\clearpage
 
-
-
-   %%% PRIMBES2
-
-
-\begin{figure}
-  \centering
-  \caption{Antall prosedyrer etter primær beslutning og PCI senter}
-<<echo=FALSE , results = tex>>=
-file = "N_procedures_primbes_detailed_PCIcenter.pdf"
-pdf(file , width = 12 , height = 8 , pointsize = 12)
-
-op <- par(
-    mfcol = c (1,1) , 
-    xpd = NA , 
-    mar = c(5.1,4.1,4.1,13.1) , 
-    bg = "#EEEEEE")
-pal <- brew( length(levels(dat$PrimaerBeslutning2)))
-barplot(
-    xtabs(~ PrimaerBeslutning2 + factor(SHUS)  , data = dat) , 
-    las = 1 , 
-    xlab = "PCI Senter" , 
-    ylab = "Antall" , 
-    col = pal , 
-    space = 0.2 , 
-    border = FALSE)
-legend(
-    "right" , 
-    inset = -.28 , 
-    bty = "n" , 
-    horiz = FALSE , 
-    fill = pal, 
-    legend = levels(dat$PrimaerBeslutning2) , 
-    cex = 1)
-par(op)
-
-dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
-@
-
-
-\begin{tiny}
-<<echo = FALSE , results = tex>>=
-print(
-    xtable(
-        addmargins( xtabs( ~ SHUS + PrimaerBeslutning2 , dat)) ,
-        digits = 0 ,
-        caption = "Antall prosedyrer etter primær beslutning og PCI senter") ,
-    booktabs = TRUE ,
-    rotate.colnames = TRUE)
-@
-\end{tiny}
 
 \clearpage
-
-
-\begin{figure}
-  \centering
-  \caption{Prosent andel prosedyrer etter primær beslutning og PCI senter}
-<<echo=FALSE , results = tex>>=
-file = "r_procedures_primbes_detailed_PCIcenter.pdf"
-pdf(file , width = 12 , height = 8 , pointsize = 12)
-
-op <- par(
-    mfcol = c (1,1) , 
-    xpd = NA , 
-    mar = c(5.1,4.1,4.1,13.1) , 
-    bg = "#EEEEEE")
-pal <- brew( length(levels(dat$PrimaerBeslutning2)))
-barplot(
-    100 * prop.table(
-        xtabs(~ PrimaerBeslutning2 + factor(SHUS)  , data = dat) ,
-        margin = 2 ) ,
-    las = 1 , 
-    xlab = "PCI Senter" , 
-    ylab = "Prosent" , 
-    col = pal , 
-    space = 0.2 , 
-    border = FALSE)
-legend(
-    "right" , 
-    inset = -.28 , 
-    bty = "n" , 
-    horiz = FALSE , 
-    fill = pal, 
-    legend = levels(dat$PrimaerBeslutning2) , 
-    cex = 1)
-par(op)
-
-dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
-@
-
-
-\begin{tiny}
-<<echo = FALSE , results = tex>>=
-print(
-    xtable(
-        100 * prop.table(
-            x = addmargins(
-                A = xtabs( ~ SHUS + PrimaerBeslutning2 , dat) ,
-                margin = 1) ,
-            margin = 1) ,
-        digits = 1 ,
-        caption = "Proent andel prosedyrer etter primær beslutning og PCI senter") ,
-    booktabs = TRUE ,
-    rotate.colnames = TRUE)
-@
-\end{tiny}
-
-\clearpage
-
-
-
+\subsection{\ldots etter vakttid}
 
    %%% JOURTID
 
-
-\begin{figure}
+\begin{figure}[ht]
   \centering
-  \caption{Antall prosdyrer etter vakttid og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_jourtid_PCIcenter.pdf"
 pdf(
@@ -928,9 +841,10 @@ legend( "right" ,
 par(op)
 
 dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
 @
-
+  \caption{Antall prosdyrer etter vakttid og PCI senter}
+\end{figure}
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
@@ -946,9 +860,8 @@ print(
 \clearpage
 
 
-\begin{figure}
+\begin{figure}[ht]
   \centering
-  \caption{Prosent andel prosdyrer etter vakttid og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "r_procedures_jourtid_PCIcenter.pdf"
 pdf(
@@ -981,9 +894,10 @@ legend( "right" ,
 par(op)
 
 dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
 @
-
+  \caption{Prosentandel prosdyrer etter vakttid og PCI senter}
+\end{figure}
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
@@ -994,22 +908,21 @@ print(
                 A = xtabs( ~ SHUS + Vakttid , dat) ,
                 margin = 1 ) ,
             margin = 1 ) ,
-        digits = 1 , caption = "Prosent andel prosedyrer etter vakttid og PCI senter") ,
+        digits = 1 , caption = "Prosentandel prosedyrer etter vakttid og PCI senter") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
 \end{tiny}
 
+
+
 \clearpage
-
-
+\subsection{\ldots etter indikasjon}
 
    %%% INDIKATION
 
-
-\begin{figure}
+\begin{figure}[ht]
   \centering
-  \caption{Antall prosedyrer etter indikasjon og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_indikation_PCIcenter.pdf"
 pdf(
@@ -1042,9 +955,10 @@ legend(
 par(op)
 
 dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
 @
-
+  \caption{Antall prosedyrer etter indikasjon og PCI senter (SCAD = stabil koronarsykdom, UAP = ustabil angina pectoris, NSTEMI = non-ST-elevasjon myokardinfarkt, STEMI = ST-elevasjon myokardinfarkt)}
+\end{figure}
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
@@ -1062,9 +976,8 @@ print(
 
 
 
-\begin{figure}
+\begin{figure}[ht]
   \centering
-  \caption{Prosent andel prosedyrer etter indikasjon og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "r_procedures_indikation_PCIcenter.pdf"
 pdf(
@@ -1099,9 +1012,10 @@ legend(
 par(op)
 
 dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
 @
-
+  \caption{Prosentandel prosedyrer etter indikasjon og PCI senter (SCAD = stabil koronarsykdom, UAP = ustabil angina pectoris, NSTEMI = non-ST-elevasjon myokardinfarkt, STEMI = ST-elevasjon myokardinfarkt)}
+\end{figure}
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
@@ -1114,21 +1028,21 @@ print(
             margin = 1) ,
         digits = 1 ,
         label = "tab:pros:ind" ,
-        caption = "Prosent andel prosedyrer etter indikasjon og PCI senter") ,
+        caption = "Prosentandel prosedyrer etter indikasjon og PCI senter") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
 \end{tiny}
 
+
+
 \clearpage
-
-
+\subsection{\ldots etter funn}
 
    %%% FYND
 
-\begin{figure}
+\begin{figure}[ht]
   \centering
-  \caption{Antall prosedyrer etter funn og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_fynd_PCIcenter.pdf"
 pdf(
@@ -1161,9 +1075,10 @@ legend(
 par(op)
 
 dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
 @
-
+  \caption{Antall prosedyrer etter funn og PCI senter (HS = hovedstamme stenose)}
+\end{figure}
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
@@ -1181,9 +1096,8 @@ print(
 
 
 
-\begin{figure}
+\begin{figure}[ht]
   \centering
-  \caption{Prosent andel prosedyrer etter funn og PCI senter}
 <<echo=FALSE , results = tex>>=
 file = "r_procedures_fynd_PCIcenter.pdf"
 pdf(
@@ -1218,9 +1132,10 @@ legend(
 par(op)
 
 dev.null <- dev.off()
-cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
 @
-
+  \caption{Prosentandel prosedyrer etter funn og PCI senter (HS = hovedstamme stenose)}
+\end{figure}
 
 \begin{tiny}
 <<echo = FALSE , results = tex>>=
@@ -1232,16 +1147,68 @@ print(
                 margin = 1 ) ,
             margin = 1 ) ,
         digits = 1 ,
-        caption = "Prosent andel prosedyrer etter funn og PCI senter" ,
+        caption = "Prosentandel prosedyrer etter funn og PCI senter" ,
         label = "tab:pros:funn") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
 \end{tiny}
 
+
+
 \clearpage
+\section{Antall annen diagnostikk}
+
+<<echo = FALSE , results = tex>>=
+
+nFFR <- xtabs(
+    formula = ~ SHUS + DIATRYCK ,
+    data = dat ,
+    exclude = c(0,9))
+
+rFFR <- 100 * prop.table(
+    xtabs(
+        formula = ~ SHUS + DIATRYCK ,
+        data = dat ,
+        exclude = NULL ,
+        na.action = na.pass ) ,
+    margin = 1 )[,2]
+
+nIVUS <- xtabs(
+    formula = ~ SHUS + DIAIVUS ,
+    data = dat ,
+    exclude = c(0,9))
+
+rIVUS <- 100 * prop.table(
+    xtabs(
+        formula = ~ SHUS + DIAIVUS ,
+        data = dat ,
+        exclude = NULL ,
+        na.action = na.pass ) ,
+    margin = 1 )[,2]
+
+Tillegg <- cbind(
+    nFFR ,
+    rFFR ,
+    nIVUS ,
+    rIVUS )
+
+attr(Tillegg , "dimnames")[[2]] <- c("Antall FFR" , "Prosentandel FFR" , "Antall IVUS" , "Prosentandel IVUS")
+
+print(
+    xtable(
+        Tillegg ,
+        digits = c(0,0,1,0,1) ,
+        caption = "Totalt antall annen diagnostikk etter PCI senter (prosentandel per totalt antall gjennomførte prosedyrer).") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE )
+
+@
 
 
+
+
+\section{Tid fra innleggelse i sykehus til prosedyre}
 
 <<echo = FALSE , results = tex>>=
 
@@ -1251,36 +1218,45 @@ L <- lapply(
         f = list(
             dat.NSTEMI$SHUS ,
             dat.NSTEMI$HenvisningsStatus)) ,
-    FUN = summary)
+    FUN = quantile , probs = 1:3/4 , na.rm = TRUE)
 
 M <- matrix(
-    signif(
-        unlist(L) ,
-        digits = 3),
+    unlist(L) ,
     nrow = 4 ,
     byrow = TRUE)
 
 colnames(M) <- attr(L[[1]] , "names")
-rownames(M) <- attr(L , "names")
+rownames(M) <- gsub( "\\." , " / " , attr(L , "names"))
 
 print(
     xtable(
         x = M ,
-        caption = "Antall dager fra indeks innleggelse til prosedyre etter henvisnings status og PCI senter" ,
-        digits = c(0,0,0,0,2,0,0,0)) ,
+        caption = "Percentiler (25\\%, 50\\% og 75\\% ) av antall dager fra innleggelse i sykehus til prosedyre etter henvisnings status og PCI senter. NB: I denne tidlige versjonen av rapportsystemet er ventetider >30 dager eksludert (n=11 fra UNN og n=13 fra HUS. Alle n=24 viser inkonsistente dato-registreringer og må korrigeres manuellt). Siden quartiler og median er robust mot uteliggende feilregistreringer. Tallene er rapportert uten en manuell kvalitetskontroll og er sansynligvis for konservative." ,
+        digits = 1) ,
     booktabs = TRUE)
 
 @ 
 
 
 
+
 \clearpage
 \chapter{Metoder for fangst av data}\label{cha:metoder}
-\twocolumn
+
+\section{Arbeitsflyt}
+\begin{figure}
+  \label{fig:workflow}
+  \includegraphics[width=0.95\textwidth]{noric_workflow.png}
+  \caption{Oversikt over skjemaer og arbeidsflyt}
+\end{figure}
+
+Registreringen av data vil delvis bli gjort av den legen som utfører prosedyren og delvis av annet helsepersonell og kontorpersonell. Fordelingen av arbeidet mellom disse personellgruppene vil være avhengig av lokale forhold ved det enkelte senter. Data vil bli registrert direkte via en web-løsning til lokale kvalitetsregister som er administrert av Helse Nord IKT. Data fra de enkelte lokale kvalitetsregistrene blir så overført til det nasjonale kvalitetsregisteret, NORIC. De sykehusene som tok i bruk registeret i 2013 var Haukeland universitetssjukehus (HUS) og Universitetssykehuset Nord-Norge (UNN).
+
+Figur \ref{fig:workflow} gir en oversikt over registerets fire skjemaer med et utvalg av tilhørende variabler. Ved HUS er det den enkelte operatør som primært fyller ut hovedskjemaet i registeret. De resterende skjemaer blir supplert i ettertid av annet helsepersonell. Ved UNN er det operatøren som i hovedsak fyller ut samtlige skjemaer. 
+
 
 
 \chapter{Metodisk kvalitet}\label{cha:kva}
-
 
 \section{Antall registreringer}\label{sec:reg}
 Per 31.12.2013 var det 5031 registrerte opphold i NORIC, hvor opphold er definert som besøk eller undersøkelser ved invasivt kardiologisk laboratorium for diagnostikk eller behandling. Disse oppholdene er fordelt på 2982 angiografier, 1811 med kombinert angiografi + PCI, og 238 prosedyrer der det bare ble utført PCI, det vi si til sammen 4793 koronar angiografier og 2049 PCIer (jfr. tabell 3.3).  
@@ -1288,14 +1264,16 @@ Per 31.12.2013 var det 5031 registrerte opphold i NORIC, hvor opphold er definer
 \section{Metode for beregning av dekningsgrad}\label{sec:met}
 NORIC er ennå ikke koblet til basisregisteret ved Folkehelseinstituttet, så dekningsgradsanalyser er begrenset til summariske opplysninger fra sykehusinterne datasystem. Dette er bare utført for HUS ved hjelp av registreringer i Orbit, da det ikke er tilsvarende registreringer ved UNN. 
 
+5.3 Dekningsgrad på institusjonsnivå
 \section{Dekningsgrad på institusjonsnivå}\label{sec:endek}
-For 2013 er det ved HUS registrert 3035 angiografier og 1290 PCI i NORIC og 3133 angiografier og 1360 PCIer  i Orbit. Dette gir en dekningsgrad på henholdsvis 97 og 95 \%.
+For 2013 er det ved HUS registrert 3035 angiografier og 1290 PCIer i NORIC og 3133 angiografier og 1360 PCIer  i Orbit. Dette gir en dekningsgrad på henholdsvis 97 og 95 \%.
 
+5.4 Dekningsgrad på individnivå
 \section{Dekningsgrad på individnivå}\label{sec:obs}
 Ikke utført for 2013.
 
 \section{Metoder for intern sikring av datakvalitet}\label{sec:sik}
-Under utfyllingen av registreringsskjema blir variabler der dette er mulig og aktuelt, sjekket mot andre variabler for å sikre samsvar mellom disse. Kvaliteten på data blir også forsøkt sikret ved å sjekke at de verdiene som blir lagt inn, er innenfor grenser som er sannsynlige eller tillatt.
+Under utfyllingen av det web-baserte registreringsskjemaet blir variabler der dette er mulig og aktuelt, automatisk sjekket mot andre variabler for å sikre samsvar mellom disse. Kvaliteten på data blir også forsøkt sikret ved å sjekke at de verdiene som blir lagt inn, er innenfor grenser som er sannsynlige eller tillatt. 
 
 Registreringene blir dels utfylt i tilknytning til selve prosedyren av operatør og radiograf/sykepleier. Etter intensjonen skal dette kvalitetssikres og bli supplert i ettertid av registreringspersonale ved det enkelte sykehus mot journalopplysninger og eventuelt annen informasjon som måtte foreligge. Praksis på dette punktet varierer nok en god del mellom deltakende sykehus.
 
@@ -1304,6 +1282,8 @@ Ikke utført for 2013.
 
 \section{Vurdering av datakvalitet}\label{sec:valdat}
 Ikke utført analyser av dette for 2013.
+
+
 
 
 \chapter{Fagutvikling og klinisk kvalitetsforbedring}\label{cha:fag}
@@ -1365,55 +1345,11 @@ Registeret er i oppbyggingsfase slik at det er svært begrenset hva vi har gjort
 
 
 
-\onecolumn
 
 
 \part{Plan for forbedringstiltak}\label{par:for}
 
-\chapter{Momentliste}
-
-\begin{itemize}
-  \item Datafangst
-    \begin{itemize}
-      \item Forbedring av metoder for fangst av data
-    \end{itemize}
-  \item Metodisk kvalitet
-    \begin{itemize}
-      \item Nye registrerende enheter/avdelinger
-      \item Forbedring av dekningsgrad på individnivå i registeret
-      \item Endringer av rutiner for intern kvalitetssikring av data
-      \item Oppfølging av resultater fra validering mot eksterne kilder
-    \end{itemize}
-  \item Fagutvikling og kvalitetsforbedring av tjenesten
-    \begin{itemize}
-      \item Nye kvalitetsmål
-      \item Nye pasientrapporterte resultater som skal inn i registeret
-      \item Utvidet bruk av pasientrapporterte resultater
-      \item Nye demografiske variabler som skal inn i registeret
-      \item Utvidet bruk av demografiske variabler
-      \item Nye variabler som beskriver sosiale forhold hos pasientene
-      \item Utvidet bruk av resultater som beskriver sosiale ulikheter
-      \item Bidrag til etablering av nasjonale retningslinjer eller 
-        nasjonale kvalitetsindikatorer
-      \item Registrerende enheters etterlevelse av nasjonale retningslinjer
-      \item Økt bruk av resultater til klinisk kvalitetsforbedring i hver enkelt
-        institusjon
-      \item Prioriterte, kliniske forbedringsområder
-    \end{itemize}
-  \item Formidling av resultater
-    \begin{itemize}
-      \item Forbedring av resultatformidling til deltagende fagmiljø
-      \item Forbedring av resultatformidling til administrasjon og ledelse
-      \item Forbedring av resultatformidling til pasienter
-      \item Forbedring av hvordan resultater på institusjonsnivå offentliggjøres
-    \end{itemize}
-  \item Samarbeid og forskning
-    \begin{itemize}
-      \item Nye samarbeidspartnere
-      \item Forskningsprosjekter og annen vitenskapelig aktivitet
-    \end{itemize}
-\end{itemize}
-
+\chapter{Forbedringstiltak}
 
 \section{Datafangst}
 
@@ -1422,7 +1358,31 @@ Dataregistrering foregår på samme måte som tidligere ved at operatør sammen 
 
 \section{Metodisk kvalitet}
 
-Pr. september 2014 er 6 av totalt 8 invasive sentre i gang med registrering av data i NORIC. Vi vil arbeide for at de to resterende sykehusene også skal ta i bruk kvalitetsregisteret. Dekningsgradsanalyser vil bli gjennomført ved hjelp av data fra NPR når vi er koblet opp mot det Nasjonale hjerte- og karregisteret. For det enkelte sykehus vil vi tilstrebe løsninger for fortløpende kontroll (daglig/ukentlig) mot andre kliniske registreringssystem for å sjekke at alle pasienter blir registrert. Dette er allerede implementert ved Haukeland universitetssjukehus ved kontroll mot Orbit som blir brukt til planlegging av programmet på laboratoriene. 
+I 2013 var registeret tatt i bruk ved 2 sykehus og fra 1.1.2014 ved ytterligere 4 (tabell \ref{tab:oppstart}). Vi vil arbeide for at Rikshospitalet og Feiringklinikken også skal ta i bruk kvalitetsregisteret.
+
+Dekningsgradsanalyser vil bli gjennomført ved hjelp av data fra NPR når vi er koblet opp mot Nasjonalt hjerte- og karregister. For det enkelte sykehus vil vi tilstrebe løsninger for fortløpende kontroll (daglig/ukentlig) mot andre kliniske registreringssystem for å sjekke at alle pasienter blir registrert. Dette er allerede implementert ved Haukeland universitetssjukehus ved kontroll mot Orbit, et datasystem som blir brukt til planlegging av programmet på laboratoriene. 
+
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lr}
+    \toprule
+    Sykehus & Oppstart dato\\
+    \midrule
+    Haukeland universitetssjukehus & 01.01.2013\\
+    Universitetssykehuset Nord-Norge & 01.05.2013\\
+    St. Olavs hospital & 01.01.2014\\
+    Stavanger universitetssjukehus & 01.01.2014\\
+    Sørlandet sykehus, Arendal & 01.01.2014\\
+    Oslo universitetssykehus, Ullevål & 01.01.2014\\
+    Oslo universitetssykehus, Rikshospitalet & Ikke startet ennå\\
+    Feiringklinikken & Ikke startet ennå\\
+    \bottomrule
+\end{tabular}
+\label{tab:oppstart}
+\caption{Oversikt over deltakende sykehus/senter og oppstarts dato}
+\end{table}
+
 
 
 \section{Fagutvikling og kvalitetsforbedring av tjenesten}
@@ -1431,7 +1391,7 @@ I løpet av 2014 vil vi bestemme nye kvalitetsmål for registeret. I den forbind
 
 Vi ønsker å utvikle system for pasientrapporterte resultater, men er avhengig av finansiering for å gjennomføre dette. Vi vil også bidra til utvikling av nasjonale kvalitetsindikatorer innenfor invasiv kardiologi.
 
-Våre muligheter til å registrere demografiske og sosiale variabler er begrenset siden disse ikke er hjemlet i forskriften for Hjerte- og karregisteret. 
+Våre muligheter til å registrere demografiske og sosiale variabler er begrenset siden disse ikke er hjemlet i forskrift for Hjerte- og karregisteret.
 
 
 \section{Formidling av resultater}
@@ -1448,7 +1408,7 @@ Noen av disse rapportene vil kunne finnes på web-siden til registeret og dermed
 
 \chapter{Referanser til vurdering av stadium}
 
-\begin{longtable}{rp{10cm}lcc}
+\begin{longtable}{rp{7cm}lcc}
   \caption[Vurderingspunkter for stadium \registernavn]
   {Vurderingspunkter for stadium \registernavn} \\
   \hline 	 
