@@ -1,0 +1,944 @@
+\documentclass[presentation,xcolor=pdftex,dvipsnames,table,11pt]{beamer}
+\usetheme{Hannover}
+\usecolortheme{seagull}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[absolute,overlay]{textpos}
+\usepackage{xspace}
+\usepackage{booktabs}
+\usepackage{rotating}
+\usepackage{array}                 % table formatting with array
+\usepackage{longtable}             % tables longer then one page
+\usepackage{caption}               % better captions
+\usepackage{makeidx}               % indexing the document
+\usepackage{Sweave}
+
+\graphicspath {{img/}}
+
+
+
+<<echo = FALSE , eval = TRUE>>=
+library(yaml)
+library(car)             # recoding variables
+library(xtable)          # LaTeX tables
+library(RMySQL)          # accessing the database
+library(ggplot2)   #  advanced figures
+library(quantreg)  #  quantile regression
+library(RColorBrewer)    # intellingent colour palettes
+
+brew <- function(
+    N = 3 ,
+    alpha = "AA" ) paste(
+        brewer.pal(
+            n = N , 
+            name = if(N<9) "Dark2" else "Set3" ) ,
+        alpha ,
+        sep = "")
+
+describe <- function(X){
+    DTAB <- c(
+        as.character(sum(!is.na(X))) ,
+        sum(is.na(X)) ,
+        length(na.exclude(unique(X))) ,
+        round(x = mean( X , na.rm = TRUE ) ,
+              digits = 1 ) ,
+        min( X , na.rm = TRUE ) ,
+        max( X , na.rm = TRUE ) ,
+        round(
+              quantile( X ,na.rm = TRUE , probs = .025 ) ,
+              digits = 1) ,
+        round(
+              quantile( X ,na.rm = TRUE , probs = .05 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .10 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .25 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .50 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .75 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .90 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .95 ) ,
+              digits = 1) , 
+        round(
+              quantile( X , na.rm = TRUE , probs = .975 ) ,
+              digits = 1))
+    attr( DTAB , "names") <- c("n",
+                               "missing",
+                               "unique",
+                               "mean",
+                               "minimum",
+                               "maximum",
+                               ".025",
+                               ".05",
+                               ".10",
+                               ".25",
+                               ".50",
+                               ".75",
+                               ".90",
+                               ".95",
+                               ".975")
+    return(DTAB)}
+
+
+
+TimeGAM <- function(
+    x ,
+    data = Subacute ,
+    ymax = 14 ,
+    lambda = 0.8 ) {
+
+    DAT <- na.exclude(
+        data.frame(
+            Days = data[,paste(x)] ,
+            Month = as.numeric(data$Month) ))
+
+    NTAB <- as.numeric(
+        table(
+            as.numeric(DAT$Month)))
+
+    op <- par( las = 1 , mar = c( 5 , 4 , 4, 2) + 0.1 )
+
+    plot(
+        Days ~ jitter(Month) ,
+        data = DAT ,
+        ylim = c(-1 , ymax) ,
+        pch = 16 ,
+        bty = "n" ,
+        axes = FALSE ,
+        col = "#1a1a1a11" ,
+        main = "" ,
+        xlab = "Month" ,
+        ylab = "Days" )
+    
+    axis(side = 1 ,
+         at = 1:12)
+
+    axis(side = 2 ,
+         at = 0:ymax)
+
+    text(x = 1:12 ,
+         y = rep(x = -0.5 , times = 12) ,
+         labels = NTAB)
+    
+    text(x = 0 ,
+         y = -0.5 ,
+         labels = "N")
+        
+    abline(h = 0:15 ,
+           col = "#1a1a1a11" ,
+           lty = 2)
+    
+plot( 
+    rqss(
+        Days ~ qss( Month , lambda = lambda ) ,
+        tau = 0.25 ,
+        data = DAT ) ,
+    rug = FALSE ,
+    add = TRUE )
+
+plot( 
+    rqss(
+        Days ~ qss( Month , lambda = lambda ) ,
+        tau = 0.50 ,
+        data = DAT ) ,
+    rug = FALSE ,
+    add = TRUE )
+
+plot( 
+    rqss(
+        Days ~ qss( Month , lambda = lambda ) ,
+        tau = 0.75 ,
+        data = DAT ) ,
+    rug = FALSE ,
+    add = TRUE )
+
+par(op)}
+
+@ 
+
+
+
+
+<<echo = FALSE , results = tex>>=
+
+reshID <- 101619 ## UNN for local testing
+conf <- yaml.load_file('../dbConfig.yml')
+
+printname <- unlist( conf [[paste("noric" , reshID , sep = "")]]["disp"])
+
+cat("\\title{NORIC" , printname , "\\\\Time to Treatment}\n\n")
+cat("\\date{" , date() , "}\n\n")
+
+con <- dbConnect( dbDriver("MySQL") ,
+  dbname = unlist( conf[[paste("noric" , reshID , sep = "")]]["name"]) ,
+  host = unlist( conf[[paste("noric" , reshID , sep = "")]]["host"]) ,
+  user = unlist( conf[[paste("noric" , reshID , sep = "")]]["user"]) ,
+  password = unlist( conf[[paste("noric" , reshID , sep = "")]]["pass"]) )
+
+query <- "
+SELECT
+   M.MCEID, M.PARENT_MCEID, M.INTERVENTION_TYPE, M.MCETYPE,
+   R.INTERDAT, R.JOURTID, R.REGTYP, R.INDIKATION, R.FYND, R.DIATRYCK, R.DIADOP, R.DIAIVUS, R.PRIMBES,
+   I.HOSP_ADMISSIONDATE, I.TRANSFERREDPATIENT, I.TRANSFERREDFROM, H.NAME AS TRANSFERREDFROMchar, I.REFERRING_HOSP_ADMISSIONDATE, I.KILLIPKLASS, I.SYMPTOM_ONSET_DATE, I.SYMPTOM_ONSET_TIME, I.SYMPTOM_ONSET_MISSING, I.PREHOSPITAL_ECG_DATE, I.PREHOSPITAL_ECG_TIME, I.PREHOSPITAL_ECG_MISSING, I.THROMB_GIVEN_DATE, I.THROMB_GIVEN_TIME, I.ADMISSION_ER_DATE, I.ADMISSION_ER_TIME
+FROM mce M
+   INNER JOIN regangio R ON M.MCEID=R.MCEID
+   INNER JOIN initialcare I ON M.MCEID=I.MCEID
+   LEFT JOIN  hospital H ON I.TRANSFERREDFROM=H.ID
+;"
+dat <- dbGetQuery( con , query )
+con <- dbDisconnect(con)
+con <- dbUnloadDriver(dbDriver("MySQL"))
+
+@ 
+
+
+
+
+\begin{document}
+\begin{tiny}
+
+\maketitle
+
+
+% \section{Recode Number Codes to Readable Lables}
+<<echo = FALSE , eval = TRUE>>=
+
+dat$Urgency <- addNA(
+    factor(x = addNA(dat$MCETYPE) ,
+           exclude = NULL ,
+           labels = c('Elective','Acute','Subacute')))
+
+
+dat$Indication <- recode(var = dat$INDIKATION ,
+                         recodes = "
+1='SAP';
+2='UAP';
+3='NSTEMI';
+4:6='STEMI';
+NA=NA;
+else='Other'
+")
+
+dat$Indication <- addNA(
+    factor(x = dat$Indication ,
+           levels = c(
+               'SAP',
+               'UAP',
+               'NSTEMI',
+               'STEMI',
+               'Other')))
+
+
+dat$Regtyp <- recode(var = dat$REGTYP ,
+                     recodes = "
+1='Angio';
+2='PCI';
+3='Angio+PCI';
+NA=NA;
+")
+
+dat$Regtyp <- addNA(
+    factor(x = dat$Regtyp ,
+           levels = c(
+               'Angio',
+               'PCI',
+               'Angio+PCI')))
+
+
+dat$PrimaerBeslutning <- recode(var = dat$PRIMBES ,
+                                recodes = "
+ 1 = 'Ingen behandling';
+ 2 = 'Fortsatt medisinsk behandling';
+ 3:6 = 'Diskusjon/uavklart';
+ 8  = 'PCI elektiv';
+ 9  = 'PCI ad hoc';
+ NA = NA;
+ c(7,10,11) = 'Annet'
+")
+
+dat$PrimaerBeslutning <- addNA(
+    factor(x = dat$PrimaerBeslutning ,
+           levels = c(
+               'Ingen behandling',
+               'Fortsatt medisinsk behandling',
+               'Diskusjon/uavklart',
+               'PCI elektiv',
+               'PCI ad hoc',
+               'Annet')))
+
+
+dat$Funn <- recode( var = dat$FYND ,
+                   recodes = '
+1 = "Normalt/Ateromatose";
+2 = "1-kar ikke HS";
+3 = "2-kar ikke HS";
+4 = "3-kar ikke HS";
+5 = "HS + 1-kar";
+6 = "HS + 2-kar";
+7 = "HS + 3-kar";
+8 = "HS";
+0 = "Ikke konklusiv";
+else = NA')
+
+dat$Funn <- factor(x = dat$Funn ,
+                   exclude = NULL )
+
+
+dat$HenvistFra <- recode(var = dat$TRANSFERREDFROM ,
+                         recodes = '
+ 1 = "Kirkenes sykehus";
+ 2 = "Hammerfest sykehus";
+ 3 = "UNN-Tromsø";
+ 4 = "Harstad Sykehus";
+ 5 = "Narvik Sykehus";
+ 6 = "Nordlandssykehuset Lofoten";
+ 7 = "Nordlandssykehuset Vesterålen";
+ 8 = "Nordlandssykehuset Bodø";
+ 9 = "Helgelandssykehuset Mo i Rana";
+10 = "Helgelandssykehuset Mosjøen";
+11 = "Helgelandssykehuset Sandnessjøen";
+12 = "Sykehuset Namsos";
+13 = "Sykehuset Levanger";
+14 = "St.Olavs Hospital";
+15 = "Orkdal sykehus";
+16 = "Kristiansund sykehus";
+17 = "Molde sykehus";
+18 = "Ålesund sykehus";
+19 = "Volda sykehus";
+20 = "Nordfjordeid sjukehus";
+21 = "Førde sentralsjukehus";
+22 = "Lærdal sjukehus";
+23 = "Haraldsplass sykehus";
+24 = "Voss sjukehus";
+25 = "Haukeland Universitetssykehus";
+26 = "Stord sykehus";
+27 = "Odda sykehus";
+28 = "Haugesund sykehus";
+29 = "Stavanger Universitetssykshus";
+30 = "Sørlandet sykehus Kristiansand";
+31 = "Sørlandet sykehus Flekkefjord";
+32 = "Sørlandet sykehus Arendal";
+33 = "Sykehuset Telemark Skien";
+34 = "Sykehuset Telemark Rjukan";
+35 = "Sykehuset Telemark Notodden";
+36 = "Sykehuset i Vestfold";
+37 = "Drammen sykehus";
+38 = "Kongsberg sykehus";
+39 = "Lillehammer sykehus";
+40 = "Tynset sykehus";
+41 = "Akershus universitetssykeshus";
+42 = "OUS - Ullevål";
+43 = "OUS - Rikshospitalet";
+44 = "Sykehuset Østfold";
+45 = "Annet sykehus";
+else = "Direkte" # this should be NA
+')
+
+
+dat$DirekteTilPCI <- factor(x = dat$HenvistFra == "Direkte" )
+dat$AdmissionType <- factor(x = (dat$HenvistFra == "Direkte") ,
+                                labels = c("Referred","Directly"))
+
+@ 
+
+
+
+% \section{Recode Dates and Calculate Date Differences in Days}
+\begin{frame}
+The following five date differences (days) are calculated and displayed:
+\begin{enumerate}
+\item{DaysFromSymptomToProcedure}
+\item{DaysFromSymptomToPCIcenterAdmission}
+\item{DaysFromSymptomToIndexAdmission}
+\item{DaysFromIndexAdmissionToProcedure}
+\item{DaysFromPCIcenterAdmissionToProcedure}
+\end{enumerate}
+\end{frame}
+
+
+<<echo = FALSE , eval = TRUE>>=
+
+dat$REFERRING_HOSP_ADMISSIONDATE[dat$HenvistFra == "Direkte"] <- {
+    dat$HOSP_ADMISSIONDATE[dat$HenvistFra == "Direkte"]}
+     
+dat$REFERRING_HOSP_ADMISSIONDATE <- as.Date(
+    x = dat$REFERRING_HOSP_ADMISSIONDATE ,
+    format = "%Y-%m-%d")
+
+dat$HOSP_ADMISSIONDATE <- as.Date(
+    x = dat$HOSP_ADMISSIONDATE ,
+    format = "%Y-%m-%d")
+
+dat$ADMISSION_ER_DATE <- as.Date(
+    x = dat$ADMISSION_ER_DATE ,
+    format = "%Y-%m-%d")
+
+dat$INTERDAT <- as.Date(
+    x = dat$INTERDAT ,
+    format = "%Y-%m-%d")
+
+dat$SYMPTOM_ONSET_DATE <- as.Date(
+    x = dat$SYMPTOM_ONSET_DATE ,
+    format = "%Y-%m-%d")
+
+dat$Month <- factor( format(dat$INTERDAT , "%y-%m") )
+
+dat$DaysFromSymptomToProcedure <- as.numeric(
+    dat$INTERDAT - dat$SYMPTOM_ONSET_DATE )
+
+dat$DaysFromSymptomToPCIcenterAdmission <- as.numeric(
+    dat$HOSP_ADMISSIONDATE - dat$SYMPTOM_ONSET_DATE )
+
+dat$DaysFromSymptomToIndexAdmission <- as.numeric(
+    dat$REFERRING_HOSP_ADMISSIONDATE - dat$SYMPTOM_ONSET_DATE )
+
+dat$DaysFromIndexAdmissionToProcedure <- as.numeric(
+    dat$INTERDAT - dat$REFERRING_HOSP_ADMISSIONDATE )
+
+dat$DaysFromPCIcenterAdmissionToProcedure <- as.numeric(
+    dat$INTERDAT - dat$HOSP_ADMISSIONDATE )
+@ 
+
+
+
+
+\section{Quality Check}
+
+\begin{frame}
+  
+Before proceeding to analysis check the data for false registrations which result in gross outliers. Obvious errors are negative or unusully long time differences from symptom onset to procedure. These criteria have been used to identify and correct the following false registrations.
+
+<<echo = false , results = tex>>=
+print(
+    xtable(
+        data.frame(
+            SymptomToProcedure = describe(
+                dat$DaysFromSymptomToProcedure) ,
+            SymptomToPCIcenter = describe(
+                dat$DaysFromSymptomToPCIcenterAdmission) ,
+            SymptomToAdmission = describe(
+                dat$DaysFromSymptomToIndexAdmission) ,
+            AdmissionToProcedure = describe(
+                dat$DaysFromIndexAdmissionToProcedure) ,
+            PCIcenterToProcedure = describe(
+                dat$DaysFromPCIcenterAdmissionToProcedure)) ,
+        label = "table:TimeSpanQuantiles" ,
+        caption = "Quantiles of All Time Span Endpoint Variables in the Total Data") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@ 
+\end{frame}
+
+
+\begin{frame}[plain,fragile]
+First list registrations with negative time differences from symptom onset (meaning treatment before symptom)
+<<echo = TRUE , eval = TRUE>>=
+dat[
+    which( dat$DaysFromSymptomToProcedure < 0 ) ,
+    c(
+        "MCEID",
+        "HOSP_ADMISSIONDATE",
+        "REFERRING_HOSP_ADMISSIONDATE",
+        "SYMPTOM_ONSET_DATE",
+        "INTERDAT") ]
+@ 
+\end{frame}
+
+
+\begin{frame}[plain,fragile]
+Previous checks have shown that registrations with more then 100 days from symtpom to procedure are false.
+<<echo = TRUE , eval = TRUE>>=
+dat[
+    which( dat$DaysFromSymptomToProcedure > 100 ) ,
+    c(
+        "MCEID",
+        "HOSP_ADMISSIONDATE",
+        "REFERRING_HOSP_ADMISSIONDATE",
+        "SYMPTOM_ONSET_DATE",
+        "INTERDAT") ]
+@ 
+False registrations are simply excluded in the following analysis, since it takes considerable time to correct them and the rank statistics calculated for the time variables are not effected by small amounts of outliers (which on top are randomly distributed).
+
+\end{frame}
+
+
+
+
+
+<<echo = FALSE , eval = TRUE>>=
+dat$DaysFromSymptomToProcedure[ which(
+    dat$DaysFromSymptomToProcedure < 0 )] <- NA
+
+dat$DaysFromSymptomToPCIcenterAdmission[ which(
+    dat$DaysFromSymptomToPCIcenterAdmission < 0 )] <- NA
+
+dat$DaysFromSymptomToIndexAdmission[ which(
+    dat$DaysFromSymptomToIndexAdmission < 0 )] <- NA
+
+dat$DaysFromIndexAdmissionToProcedure[ which(
+    dat$DaysFromIndexAdmissionToProcedure < 0 )] <- NA
+
+dat$DaysFromPCIcenterAdmissionToProcedure[ which(
+    dat$DaysFromPCIcenterAdmissionToProcedure < 0 )] <- NA
+
+dat$DaysFromSymptomToProcedure[ which(
+    dat$DaysFromSymptomToProcedure > 100 )] <- NA
+
+dat$DaysFromSymptomToPCIcenterAdmission[ which(
+    dat$DaysFromSymptomToPCIcenterAdmission > 100 )] <- NA
+
+dat$DaysFromSymptomToIndexAdmission[ which(
+    dat$DaysFromSymptomToIndexAdmission > 100 )] <- NA
+
+dat$DaysFromIndexAdmissionToProcedure[ which(
+    dat$DaysFromIndexAdmissionToProcedure > 100 )] <- NA
+
+dat$DaysFromPCIcenterAdmissionToProcedure[ which(
+    dat$DaysFromPCIcenterAdmissionToProcedure > 100 )] <- NA
+@ 
+
+
+
+<<echo = FALSE , eval = TRUE>>=
+Subacute <- subset(x = dat,
+                       subset = (
+                           (format(dat$INTERDAT , "%Y") == "2013") &
+                           (Indication %in% c("UAP","NSTEMI")) &
+                           (Urgency  == "Subacute")))
+Subacute$Indication <- factor(Subacute$Indication)
+SubacuteNSTEMI <- subset(x = dat,
+                         subset = (
+                             (format(dat$INTERDAT , "%Y") == "2013") &
+                             (Indication == "NSTEMI") &
+                             (Urgency  == "Subacute")))
+SubacuteUAP <- subset(x = dat,
+                      subset = (
+                          (format(dat$INTERDAT , "%Y") == "2013") &
+                          (Indication == "UAP") &
+                          (Urgency  == "Subacute")))
+NSTEMI <- subset(x = dat,
+                 subset = (
+                     (format(dat$INTERDAT , "%Y") == "2013") &
+                     (Indication == "NSTEMI")))
+@ 
+
+
+\begin{frame}
+Following are different graphical presentations of the time differences by indication groups. Some of the figures are redundant:
+\begin{itemize}
+  \item{boxplot,}
+  \item{violinplot and}
+  \item{overlapping densityplot (with transparence)}
+\end{itemize}
+are methods to show the distribution of the time span across subgroups of patients --- they contain the same information and which one to choose finally is a matter of personal prevalence.
+\end{frame}
+
+
+
+%%%% all NSTEMI patients both acute and sub-acute
+
+\section[Time-to-Treatment]{Date Differences in NSTEMI (acute+sub-acute) Patients}
+
+
+\begin{frame}
+  \begin{large}
+  Time to treatment (days) for NSTEMI Patients (Referred vs Directly Admitted)
+  \end{large}
+\end{frame}
+
+
+% DaysFromSymptomToProcedure
+\begin{frame}
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        NSTEMI$DaysFromSymptomToProcedure[ NSTEMI$AdmissionType == "Referred" ]) ,
+    Directly  = describe(
+        NSTEMI$DaysFromSymptomToProcedure[ NSTEMI$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by Admission Type") ,
+       booktabs = TRUE)
+@ 
+\end{frame}
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ AdmissionType ,
+        data = NSTEMI ,
+        xlab = "AdmissionType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+\end{frame}
+
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+\end{frame}
+
+\begin{frame}
+A GAM quantile plot (figure \ref{GAM: Date Differences from Symptom Onset to Procedure over Time}) shows how delays in treatment varies over the time of year.
+
+\begin{figure}
+  \centering
+  \caption{Quantiles of Date Differences from Symptom Onset to Procedure over Time (GAM-plot)\\
+  The lower through upper lines denote the 25th, 50th and 75th percentile respectively}
+  \label{GAM: Date Differences from Symptom Onset to Procedure over Time}
+<<echo=FALSE , results = tex>>=
+file = "img/GAM_Symptom_Onset_to_Procedure_over_time.pdf"
+pdf(file , width = 6 , height = 4)
+
+TimeGAM(x = "DaysFromSymptomToProcedure" ,
+        data = Subacute ,
+        ymax = 10 ,
+        lambda = 0.8)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+\end{frame}
+
+
+
+
+
+
+\begin{frame}
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[ NSTEMI$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[ NSTEMI$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to PCIcenterAdmission by Admission Type") ,
+       booktabs = TRUE)
+@ 
+\end{frame}
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToPCIcenterAdmission ~ AdmissionType ,
+        data = NSTEMI ,
+        xlab = "AdmissionType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+\end{frame}
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToPCIcenterAdmission ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+\end{frame}
+
+
+
+% "DaysFromSymptomToIndexAdmission"      
+\begin{frame}
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[ NSTEMI$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[ NSTEMI$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to IndexAdmission by Admission Type") ,
+       booktabs = TRUE)
+@ 
+\end{frame}
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToIndexAdmission ~ AdmissionType , data = NSTEMI , xlab = "AdmissionType" , ylab = "Days" , ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+\end{frame}
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToIndexAdmission ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+\end{frame}
+
+
+
+% "DaysFromIndexAdmissionToProcedure"    
+\begin{frame}
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Admission Type") ,
+       booktabs = TRUE)
+@ 
+\end{frame}
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Index_Admission_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromIndexAdmissionToProcedure ~ AdmissionType ,
+        data = NSTEMI ,
+        xlab = "AdmissionType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+\end{frame}
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Index_Admission_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+\end{frame}
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Quantiles of Date Differences from Index Admission to Procedure over Time for NSTEMI patients\\
+  The lower through upper lines denote the 25th, 50th and 75th percentile respectively}
+  \label{GAM: Date Differences from Index Admission to Procedure over Month of 2013 in NSTEMI patients}
+<<echo=FALSE , results = tex>>=
+file = "img/GAM_index_admission_to_Procedure_over_time_NSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+TimeGAM(x = "DaysFromIndexAdmissionToProcedure" ,
+        data = NSTEMI ,
+        ymax = 10 ,
+        lambda = 0.8 )
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+\end{frame}
+
+
+
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+\begin{frame}
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[ NSTEMI$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[ NSTEMI$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from PCI Center Admission to Procedure by Admission Type") ,
+       booktabs = TRUE)
+@ 
+\end{frame}
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Time_from_PCI_Center_Admission_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromPCIcenterAdmissionToProcedure ~ AdmissionType ,
+        data = NSTEMI ,
+        xlab = "AdmissionType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+\end{frame}
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_PCI_Center_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromPCIcenterAdmissionToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+\end{frame}
+
+
+
+\end{tiny}
+\end{document}
+
+
