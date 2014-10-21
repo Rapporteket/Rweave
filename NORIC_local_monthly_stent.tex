@@ -1,0 +1,243 @@
+
+\documentclass[presentation,xcolor=pdftex,dvipsnames,table]{beamer}
+\usetheme{Hannover}
+\usecolortheme{seagull}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english, norsk]{babel}
+\usepackage[absolute,overlay]{textpos}
+\usepackage{xspace}
+\usepackage{booktabs}
+\usepackage{rotating}
+\usepackage{Sweave}
+
+
+
+\title{NORIC Bergen \\Stentbruk}\date{ Sun Sep 14 20:20:45 2014 }
+
+
+
+
+
+\begin{document}
+
+\maketitle
+
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Antall stenter etter type og måned}
+  
+
+\includegraphics[width=0.95\textwidth]{N_stents_DES_YearMonth.pdf}
+\end{figure}
+\end{frame}
+
+
+
+\begin{frame}
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-3 package
+% Sun Sep 14 20:20:45 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrr}
+  \toprule
+ & BMS & BVS & DES & Sum \\ 
+  \midrule
+13-01 & 16 & 6 & 209 & 231 \\ 
+  13-02 & 20 & 1 & 130 & 151 \\ 
+  13-03 & 31 & 6 & 177 & 214 \\ 
+  13-04 & 26 & 8 & 198 & 232 \\ 
+  13-05 & 14 & 4 & 166 & 184 \\ 
+  13-06 & 15 & 2 & 174 & 191 \\ 
+  13-07 & 6 & 5 & 154 & 165 \\ 
+  13-08 & 12 & 8 & 170 & 190 \\ 
+  13-09 & 5 & 6 & 229 & 240 \\ 
+  13-10 & 11 & 16 & 203 & 230 \\ 
+  13-11 & 6 & 1 & 177 & 184 \\ 
+  13-12 & 3 & 11 & 135 & 149 \\ 
+  14-01 & 4 & 3 & 175 & 182 \\ 
+  14-02 & 6 & 9 & 195 & 210 \\ 
+  14-03 & 7 & 3 & 248 & 258 \\ 
+  14-04 & 5 & 0 & 210 & 215 \\ 
+  14-05 & 4 & 0 & 202 & 206 \\ 
+  14-06 & 5 & 0 & 152 & 157 \\ 
+  14-07 & 3 & 0 & 167 & 170 \\ 
+  14-08 & 0 & 0 & 34 & 34 \\ 
+  Sum & 199 & 89 & 3505 & 3793 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Antall stenter etter type og måned} 
+\end{table}\end{tiny}
+\end{frame}
+
+
+
+\begin{frame}
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-3 package
+% Sun Sep 14 20:20:45 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrr}
+  \toprule
+ & BMS & BVS & DES \\ 
+  \midrule
+13-01 & 6.9 & 2.6 & 90.5 \\ 
+  13-02 & 13.2 & 0.7 & 86.1 \\ 
+  13-03 & 14.5 & 2.8 & 82.7 \\ 
+  13-04 & 11.2 & 3.4 & 85.3 \\ 
+  13-05 & 7.6 & 2.2 & 90.2 \\ 
+  13-06 & 7.9 & 1.0 & 91.1 \\ 
+  13-07 & 3.6 & 3.0 & 93.3 \\ 
+  13-08 & 6.3 & 4.2 & 89.5 \\ 
+  13-09 & 2.1 & 2.5 & 95.4 \\ 
+  13-10 & 4.8 & 7.0 & 88.3 \\ 
+  13-11 & 3.3 & 0.5 & 96.2 \\ 
+  13-12 & 2.0 & 7.4 & 90.6 \\ 
+  14-01 & 2.2 & 1.6 & 96.2 \\ 
+  14-02 & 2.9 & 4.3 & 92.9 \\ 
+  14-03 & 2.7 & 1.2 & 96.1 \\ 
+  14-04 & 2.3 & 0.0 & 97.7 \\ 
+  14-05 & 1.9 & 0.0 & 98.1 \\ 
+  14-06 & 3.2 & 0.0 & 96.8 \\ 
+  14-07 & 1.8 & 0.0 & 98.2 \\ 
+  14-08 & 0.0 & 0.0 & 100.0 \\ 
+  Sum & 5.2 & 2.3 & 92.4 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Prosent stenttyper etter måned} 
+\end{table}\end{tiny}
+\end{frame}
+
+
+
+\begin{frame}
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-3 package
+% Sun Sep 14 20:20:45 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrr}
+  \toprule
+ & \begin{sideways} SAP \end{sideways} & \begin{sideways} UAP \end{sideways} & \begin{sideways} NSTEMI \end{sideways} & \begin{sideways} STEMI \end{sideways} & \begin{sideways} Annet \end{sideways} \\ 
+  \midrule
+13-01 & 1.8 & 0.0 & 2.2 & 5.0 & 33.3 \\ 
+  13-02 & 0.0 & 0.0 & 1.8 & 0.0 & 0.0 \\ 
+  13-03 & 3.7 & 5.7 & 2.5 & 0.0 & 0.0 \\ 
+  13-04 & 1.6 & 7.3 & 3.5 & 3.3 & 0.0 \\ 
+  13-05 & 2.2 & 5.6 & 2.4 & 0.0 & 0.0 \\ 
+  13-06 & 2.0 & 2.6 & 0.0 & 0.0 & 0.0 \\ 
+  13-07 & 3.0 & 5.7 & 3.5 & 0.0 & 0.0 \\ 
+  13-08 & 18.9 & 0.0 & 1.4 & 0.0 & 0.0 \\ 
+  13-09 & 4.6 & 0.0 & 1.5 & 5.1 & 0.0 \\ 
+  13-10 & 14.1 & 2.1 & 5.8 & 0.0 & 14.3 \\ 
+  13-11 & 0.0 & 0.0 & 0.0 & 3.1 & 0.0 \\ 
+  13-12 & 3.4 & 14.3 & 11.5 & 0.0 & 0.0 \\ 
+  14-01 & 1.7 & 0.0 & 3.6 & 0.0 & 0.0 \\ 
+  14-02 & 5.0 & 10.0 & 0.0 & 0.0 & 8.3 \\ 
+  14-03 & 2.9 & 0.0 & 0.0 & 0.0 & 0.0 \\ 
+  14-04 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 \\ 
+  14-05 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 \\ 
+  14-06 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 \\ 
+  14-07 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 \\ 
+  14-08 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 \\ 
+  Sum & 3.4 & 2.8 & 2.2 & 0.8 & 2.6 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Prosent andel DES per indikasjon og måned} 
+\end{table}\end{tiny}
+\end{frame}
+
+
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Antall stenter per prosedyre}
+  
+
+\includegraphics[width=0.95\textwidth]{Histogram_Nstent_per_Prosedyre.pdf}
+\end{figure}
+\end{frame}
+
+
+
+
+\begin{frame}
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-3 package
+% Sun Sep 14 20:20:45 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrrrr}
+  \toprule
+ & \begin{sideways} 13/1 \end{sideways} & \begin{sideways} 13/2 \end{sideways} & \begin{sideways} 13/3 \end{sideways} & \begin{sideways} 13/4 \end{sideways} & \begin{sideways} 14/1 \end{sideways} & \begin{sideways} 14/2 \end{sideways} & \begin{sideways} 14/3 \end{sideways} & \begin{sideways} Sum \end{sideways} \\ 
+  \midrule
+Abbott Absorb & 13 & 14 & 19 & 28 & 14 & 0 & 0 & 88 \\ 
+  Abbott Multi-Link 8 & 29 & 20 & 12 & 7 & 0 & 6 & 0 & 74 \\ 
+  Abbott Multilink Mini-Vision & 1 & 1 & 0 & 0 & 0 & 0 & 0 & 2 \\ 
+  Abbott Multilink Vision & 4 & 2 & 3 & 1 & 0 & 0 & 0 & 10 \\ 
+  Abbott Xience & 326 & 266 & 257 & 220 & 233 & 211 & 73 & 1586 \\ 
+  Biosensors BioMatrix & 73 & 41 & 21 & 26 & 26 & 24 & 9 & 220 \\ 
+  Biosensors Neoflex & 0 & 0 & 0 & 1 & 4 & 3 & 0 & 8 \\ 
+  BS Liberte & 1 & 3 & 1 & 0 & 0 & 0 & 0 & 5 \\ 
+  BS Synergy & 0 & 28 & 54 & 50 & 137 & 102 & 32 & 403 \\ 
+  CID Avant Garde & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1 \\ 
+  ITGI Aneugraft & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 1 \\ 
+  Medtronic Driver & 2 & 1 & 0 & 0 & 1 & 0 & 0 & 4 \\ 
+  Medtronic Integrity BMS & 26 & 25 & 5 & 9 & 13 & 7 & 2 & 87 \\ 
+  Medtronic Resolute Integrity & 117 & 202 & 221 & 218 & 218 & 224 & 87 & 1287 \\ 
+  Øvrige & 4 & 3 & 2 & 3 & 2 & 1 & 0 & 15 \\ 
+  Stentys BMS & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 1 \\ 
+  Stentys DES & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 1 \\ 
+  Sum & 596 & 607 & 595 & 563 & 650 & 578 & 204 & 3793 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Antall stenter etter merke per kvartal} 
+\end{table}\end{tiny}
+\end{frame}
+
+
+
+
+\begin{frame}
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-3 package
+% Sun Sep 14 20:20:45 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrrrr}
+  \toprule
+ & \begin{sideways} 13/1 \end{sideways} & \begin{sideways} 13/2 \end{sideways} & \begin{sideways} 13/3 \end{sideways} & \begin{sideways} 13/4 \end{sideways} & \begin{sideways} 14/1 \end{sideways} & \begin{sideways} 14/2 \end{sideways} & \begin{sideways} 14/3 \end{sideways} & \begin{sideways} Sum \end{sideways} \\ 
+  \midrule
+Abbott Absorb & 2.2 & 2.3 & 3.2 & 5.0 & 2.2 & 0.0 & 0.0 & 2.3 \\ 
+  Abbott Multi-Link 8 & 4.9 & 3.3 & 2.0 & 1.2 & 0.0 & 1.0 & 0.0 & 2.0 \\ 
+  Abbott Multilink Mini-Vision & 0.2 & 0.2 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.1 \\ 
+  Abbott Multilink Vision & 0.7 & 0.3 & 0.5 & 0.2 & 0.0 & 0.0 & 0.0 & 0.3 \\ 
+  Abbott Xience & 54.7 & 43.8 & 43.2 & 39.1 & 35.8 & 36.5 & 35.8 & 41.8 \\ 
+  Biosensors BioMatrix & 12.2 & 6.8 & 3.5 & 4.6 & 4.0 & 4.2 & 4.4 & 5.8 \\ 
+  Biosensors Neoflex & 0.0 & 0.0 & 0.0 & 0.2 & 0.6 & 0.5 & 0.0 & 0.2 \\ 
+  BS Liberte & 0.2 & 0.5 & 0.2 & 0.0 & 0.0 & 0.0 & 0.0 & 0.1 \\ 
+  BS Synergy & 0.0 & 4.6 & 9.1 & 8.9 & 21.1 & 17.6 & 15.7 & 10.6 \\ 
+  CID Avant Garde & 0.0 & 0.0 & 0.0 & 0.0 & 0.2 & 0.0 & 0.0 & 0.0 \\ 
+  ITGI Aneugraft & 0.0 & 0.0 & 0.0 & 0.0 & 0.2 & 0.0 & 0.0 & 0.0 \\ 
+  Medtronic Driver & 0.3 & 0.2 & 0.0 & 0.0 & 0.2 & 0.0 & 0.0 & 0.1 \\ 
+  Medtronic Integrity BMS & 4.4 & 4.1 & 0.8 & 1.6 & 2.0 & 1.2 & 1.0 & 2.3 \\ 
+  Medtronic Resolute Integrity & 19.6 & 33.3 & 37.1 & 38.7 & 33.5 & 38.8 & 42.6 & 33.9 \\ 
+  Øvrige & 0.7 & 0.5 & 0.3 & 0.5 & 0.3 & 0.2 & 0.0 & 0.4 \\ 
+  Stentys BMS & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.5 & 0.0 \\ 
+  Stentys DES & 0.0 & 0.2 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 & 0.0 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Prosent stentermerke per kvartal} 
+\end{table}\end{tiny}
+\end{frame}
+
+
+\end{document}

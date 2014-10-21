@@ -167,61 +167,17 @@ else = NA')
 dat$Funn <- factor( dat$Funn , exclude = NULL )
 
 
-dat$HenvistFra <- recode( dat$TRANSFERREDFROM , '
- 1 = "Kirkenes sykehus";
- 2 = "Hammerfest sykehus";
- 3 = "UNN-Tromsø";
- 4 = "Harstad Sykehus";
- 5 = "Narvik Sykehus";
- 6 = "Nordlandssykehuset Lofoten";
- 7 = "Nordlandssykehuset Vesterålen";
- 8 = "Nordlandssykehuset Bodø";
- 9 = "Helgelandssykehuset Mo i Rana";
-10 = "Helgelandssykehuset Mosjøen";
-11 = "Helgelandssykehuset Sandnessjøen";
-12 = "Sykehuset Namsos";
-13 = "Sykehuset Levanger";
-14 = "St.Olavs Hospital";
-15 = "Orkdal sykehus";
-16 = "Kristiansund sykehus";
-17 = "Molde sykehus";
-18 = "Ålesund sykehus";
-19 = "Volda sykehus";
-20 = "Nordfjordeid sjukehus";
-21 = "Førde sentralsjukehus";
-22 = "Lærdal sjukehus";
-23 = "Haraldsplass sykehus";
-24 = "Voss sjukehus";
-25 = "Haukeland Universitetssykehus";
-26 = "Stord sykehus";
-27 = "Odda sykehus";
-28 = "Haugesund sykehus";
-29 = "Stavanger Universitetssykshus";
-30 = "Sørlandet sykehus Kristiansand";
-31 = "Sørlandet sykehus Flekkefjord";
-32 = "Sørlandet sykehus Arendal";
-33 = "Sykehuset Telemark Skien";
-34 = "Sykehuset Telemark Rjukan";
-35 = "Sykehuset Telemark Notodden";
-36 = "Sykehuset i Vestfold";
-37 = "Drammen sykehus";
-38 = "Kongsberg sykehus";
-39 = "Lillehammer sykehus";
-40 = "Tynset sykehus";
-41 = "Akershus universitetssykeshus";
-42 = "OUS - Ullevål";
-43 = "OUS - Rikshospitalet";
-44 = "Sykehuset Østfold";
-45 = "Annet sykehus";
-else = "Direkte" # this should be NA
-')
-
-
-## this has to be improved and automated
-## the query gets TRANSFERREDFROMchar with the hospital names
-## there might be a variable which denotes the local hospital in order to define "Direkte"
+dat$HenvistFra <- dat$TRANSFERREDFROMchar
+dat$HenvistFra[is.na(dat$HenvistFra)] <- "Direkte"
+ # dirty fix for font code trouble
+dat$HenvistFra <- gsub( "\xf8" , "ø" , dat$HenvistFra)
+dat$HenvistFra <- gsub( "\xd8" , "Ø" , dat$HenvistFra)
+dat$HenvistFra <- gsub( "\xe6" , "æ" , dat$HenvistFra)
+dat$HenvistFra <- gsub( "\xc5" , "Å" , dat$HenvistFra)
+dat$HenvistFra <- gsub( "\xe5" , "å" , dat$HenvistFra)
 
 dat$DirekteTilPCI <- as.factor( dat$HenvistFra == "Direkte" )
+
 dat$HenvisningsStatus <- factor( x = (dat$HenvistFra == "Direkte") , labels = c("Henvist","Direkte"))
 
    ### reformat time variables from char to POSIX

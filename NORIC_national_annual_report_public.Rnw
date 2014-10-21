@@ -534,7 +534,7 @@ Registreringene viser stor grad av samsvar mellom sykehusene når det gjelder an
 
 Registreringene viser at det er forskjeller i bruk av supplerende intrakoronar diagnostikk ved de to sykehusene, med større bruk av intravaskulær ultralyd (IVUS) og måling av fractional flow reserve (FFR) ved HUS. 
 
-Analyser av ventetid for pasienten med NSTEMI (ikke-ST-elevasjonsinfarkt) viser betydelige forskjeller mellom de to sykehusene med vesentlig lengre ventetid ved HUS enn ved UNN. For pasienter som blir innlagt direkte til disse sykehusene er median ventetid 3 døgn ved HUS og 1 døgn ved UNN.  For pasienter som blir først innlagt ved annet sykehus er median ventetid ved HUS 5 døgn og 3 døgn ved UNN.  Ved HUS er ventetiden vesentlig lengre enn det som er anbefalt i internasjonale retningslinjer.  
+Analyser av ventetid for pasienten med NSTEMI (ikke-ST-elevasjonsinfarkt) viser betydelige forskjeller mellom de to sykehusene med vesentlig lengre ventetid ved HUS enn ved UNN. For pasienter som blir innlagt direkte til disse sykehusene er median ventetid 2 døgn ved HUS og 1 døgn ved UNN.  For pasienter som blir først innlagt ved annet sykehus er median ventetid ved HUS 5 døgn og 3 døgn ved UNN. Spesielt ved HUS er ventetiden for mange pasienter vesentlig lengre enn det som er anbefalt i internasjonale retningslinjer.  
 
 
 
@@ -1233,7 +1233,7 @@ print(
 
 
 \clearpage
-\chapter{Antall annen diagnostikk}
+\section{Antall annen diagnostikk}
 
 <<echo = FALSE , results = tex>>=
 
@@ -1284,7 +1284,7 @@ print(
 
 
 
-\chapter{Tid fra innleggelse i sykehus til prosedyre}
+\section{Tid fra innleggelse i sykehus til prosedyre}
 
 <<echo = FALSE , results = tex>>=
 
