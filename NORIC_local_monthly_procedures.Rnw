@@ -48,6 +48,9 @@ con <- dbConnect( dbDriver("MySQL") ,
   user = unlist( conf[[paste("noric" , reshID , sep = "")]]["user"]) ,
   password = unlist( conf[[paste("noric" , reshID , sep = "")]]["pass"]) )
 
+# ensure utf8 encoding
+t <- dbGetQuery( con, "SET NAMES utf8;" )
+
 query <- "
 SELECT
    M.MCEID, M.PARENT_MCEID, M.INTERVENTION_TYPE, M.MCETYPE,
@@ -170,11 +173,11 @@ dat$Funn <- factor( dat$Funn , exclude = NULL )
 dat$HenvistFra <- dat$TRANSFERREDFROMchar
 dat$HenvistFra[is.na(dat$HenvistFra)] <- "Direkte"
  # dirty fix for font code trouble
-dat$HenvistFra <- gsub( "\xf8" , "ø" , dat$HenvistFra)
-dat$HenvistFra <- gsub( "\xd8" , "Ø" , dat$HenvistFra)
-dat$HenvistFra <- gsub( "\xe6" , "æ" , dat$HenvistFra)
-dat$HenvistFra <- gsub( "\xc5" , "Å" , dat$HenvistFra)
-dat$HenvistFra <- gsub( "\xe5" , "å" , dat$HenvistFra)
+ #dat$HenvistFra <- gsub( "\xf8" , "ø" , dat$HenvistFra)
+ #dat$HenvistFra <- gsub( "\xd8" , "Ø" , dat$HenvistFra)
+ #dat$HenvistFra <- gsub( "\xe6" , "æ" , dat$HenvistFra)
+ #dat$HenvistFra <- gsub( "\xc5" , "Å" , dat$HenvistFra)
+ #dat$HenvistFra <- gsub( "\xe5" , "å" , dat$HenvistFra)
 
 dat$DirekteTilPCI <- as.factor( dat$HenvistFra == "Direkte" )
 
