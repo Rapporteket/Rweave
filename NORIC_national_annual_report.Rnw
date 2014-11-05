@@ -14,6 +14,7 @@
 % added by reinhard.seifert@helse-bergen.no for NORIC:
 \usepackage{booktabs}
 \usepackage{rotating}
+\usepackage{attachfile}
 \usepackage{Sweave}
 
 
@@ -32,6 +33,9 @@ brew <- function(
             name = if(N<9) "Dark2" else "Set3" ) ,
         alpha ,
         sep = "")
+
+# to be used in case of annotations. assume latex source, always
+pdfAttachFiles <- 'NORIC_national_annual_report.tex'
 
    ### specifying the internal ID of all local NORIC
 reshIDBergen <- 102966
@@ -54,7 +58,7 @@ GetDataLastYear <- function(reshID){
         host = unlist( CONF[[paste("noric" , reshID , sep = "")]]["host"]) ,
         user = unlist( CONF[[paste("noric" , reshID , sep = "")]]["user"]) ,
         password = unlist( CONF[[paste("noric" , reshID , sep = "")]]["pass"]) )
-    query <- "SELECT M.MCEID, M.PARENT_MCEID, M.INTERVENTION_TYPE, M.MCETYPE, R.INTERDAT, R.JOURTID, R.REGTYP, R.INDIKATION, R.FYND, R.DIATRYCK, R.DIADOP, R.DIAIVUS, R.PRIMBES, I.HOSP_ADMISSIONDATE, I.TRANSFERREDPATIENT, I.TRANSFERREDFROM, H.NAME AS TRANSFERREDFROMchar, I.REFERRING_HOSP_ADMISSIONDATE, I.KILLIPKLASS, I.SYMPTOM_ONSET_DATE, I.SYMPTOM_ONSET_TIME, I.SYMPTOM_ONSET_MISSING, I.PREHOSPITAL_ECG_DATE, I.PREHOSPITAL_ECG_TIME, I.PREHOSPITAL_ECG_MISSING, I.THROMB_GIVEN_DATE, I.THROMB_GIVEN_TIME, I.ADMISSION_ER_DATE, I.ADMISSION_ER_TIME FROM mce M INNER JOIN regangio R ON M.MCEID=R.MCEID INNER JOIN initialcare I ON M.MCEID=I.MCEID LEFT JOIN hospital H ON I.TRANSFERREDFROM=H.ID WHERE YEAR(R.INTERDAT)=YEAR(CURRENT_DATE)-1;"
+        query <- paste("SELECT M.MCEID, M.PARENT_MCEID, M.INTERVENTION_TYPE, M.MCETYPE, R.INTERDAT, R.JOURTID, R.REGTYP, R.INDIKATION, R.FYND, R.DIATRYCK, R.DIADOP, R.DIAIVUS, R.PRIMBES, I.HOSP_ADMISSIONDATE, I.TRANSFERREDPATIENT, I.TRANSFERREDFROM, H.NAME AS TRANSFERREDFROMchar, I.REFERRING_HOSP_ADMISSIONDATE, I.KILLIPKLASS, I.SYMPTOM_ONSET_DATE, I.SYMPTOM_ONSET_TIME, I.SYMPTOM_ONSET_MISSING, I.PREHOSPITAL_ECG_DATE, I.PREHOSPITAL_ECG_TIME, I.PREHOSPITAL_ECG_MISSING, I.THROMB_GIVEN_DATE, I.THROMB_GIVEN_TIME, I.ADMISSION_ER_DATE, I.ADMISSION_ER_TIME FROM mce M INNER JOIN regangio R ON M.MCEID=R.MCEID INNER JOIN initialcare I ON M.MCEID=I.MCEID LEFT JOIN hospital H ON I.TRANSFERREDFROM=H.ID WHERE YEAR(R.INTERDAT)=", reportYear, sep='')
     dat <- dbGetQuery( con , query )
     con <- dbDisconnect(con)
     con <- dbUnloadDriver(dbDriver("MySQL"))
@@ -63,12 +67,12 @@ GetDataLastYear <- function(reshID){
 
 dat <- rbind(
     GetDataLastYear(reshIDBergen) ,
-#    GetDataLastYear(reshIDStavanger) ,
-#    GetDataLastYear(reshIDSoerlandet) ,
-#    GetDataLastYear(reshIDRikshospitalet) ,
-#    GetDataLastYear(reshIDUllevaal) ,
-#    GetDataLastYear(reshIDFeiring) ,
-#    GetDataLastYear(reshIDStOlav) ,
+    GetDataLastYear(reshIDStavanger) ,
+    GetDataLastYear(reshIDSoerlandet) ,
+    GetDataLastYear(reshIDRikshospitalet) ,
+    GetDataLastYear(reshIDUllevaal) ,
+    GetDataLastYear(reshIDFeiring) ,
+    GetDataLastYear(reshIDStOlav) ,
     GetDataLastYear(reshIDUNN))
 
    ## MCETYPE = 1/2/3 -> Hendelsestype 1) Planlagt, 2) Akutt, 3) Subakutt
@@ -366,7 +370,7 @@ dat.NSTEMI.subakutt.direkte <- subset( dat , subset = (Indikasjon == "NSTEMI") &
 
 
 % tittelting
-\title{\registernavn \\ \textbf{Årsrapport for \textit{2013} med \\
+\title{\registernavn \\ \textbf{Årsrapport for \textit{\Sexpr{reportYear}} med \\
 plan for forbedringstiltak}}
 
 \author[$\dag$]{Siren Hovland\thanks{Daglig leder: \texttt{siren.hovland@helse-bergen.no}}}
@@ -546,6 +550,7 @@ Analyser av ventetid for pasienten med NSTEMI (ikke-ST-elevasjonsinfarkt) viser 
 
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_month_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(file , width = 12 , height = 6 , pointsize = 12)
 
 op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,14.1) , bg = "#EEEEEE")
@@ -580,6 +585,7 @@ cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n", sep="")
   \centering
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_mcetype_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(file , width = 12 , height = 6 , pointsize = 12)
 
 op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
@@ -610,6 +616,7 @@ print(
   \centering
 <<echo=FALSE , results = tex>>=
 file = "r_procedures_mcetype_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(file , width = 12 , height = 6 , pointsize = 12)
 
 op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
@@ -668,6 +675,7 @@ print(
   \centering
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_regtyp_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(file , width = 12 , height = 6 , pointsize = 12)
 op <- par(mfcol = c (1,1) ,
           xpd = NA ,
@@ -720,6 +728,7 @@ print(
   \centering
 <<echo=FALSE , results = tex>>=
 file = "r_procedures_regtyp_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(file , width = 12 , height = 6 , pointsize = 12)
 
 op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
@@ -778,6 +787,7 @@ print(
   \centering
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_jourtid_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(
     file = file , 
     width = 12 , 
@@ -829,6 +839,7 @@ print(
   \centering
 <<echo=FALSE , results = tex>>=
 file = "r_procedures_jourtid_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(
     file = file , 
     width = 12 , 
@@ -890,6 +901,7 @@ print(
   \centering
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_indikation_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(
     file = file , 
     width = 12 , 
@@ -945,6 +957,7 @@ print(
   \centering
 <<echo=FALSE , results = tex>>=
 file = "r_procedures_indikation_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(
     file = file , 
     width = 12 , 
@@ -1010,6 +1023,7 @@ print(
   \centering
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_primbes_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(file , width = 12 , height = 6 , pointsize = 12)
 
 op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
@@ -1058,6 +1072,7 @@ print(
   \centering
 <<echo=FALSE , results = tex>>=
 file = "r_procedures_primbes_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(file , width = 12 , height = 6 , pointsize = 12)
 
 op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
@@ -1121,6 +1136,7 @@ print(
   \centering
 <<echo=FALSE , results = tex>>=
 file = "N_procedures_fynd_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(
     file = file ,
     width = 12 ,
@@ -1176,6 +1192,7 @@ print(
   \centering
 <<echo=FALSE , results = tex>>=
 file = "r_procedures_fynd_PCIcenter.pdf"
+pdfAttachFiles <- c(pdfAttachFiles, file)
 pdf(
     file = file ,
     width = 12 ,
@@ -1286,7 +1303,7 @@ print(
 
 \section{Tid fra innleggelse i sykehus til prosedyre}
 
-<<echo = FALSE , results = tex>>=
+<<echo = FALSE , results = tex, eval=F>>=
 
 L <- lapply(
     X = split(
@@ -1319,12 +1336,15 @@ print(
 \clearpage
 \chapter{Metoder for fangst av data}\label{cha:metoder}
 
+% removed for now since I do not have the png-file
+\iffalse
 \section{Arbeitsflyt}
 \begin{figure}
   \label{fig:workflow}
   \includegraphics[width=0.95\textwidth]{noric_workflow.png}
   \caption{Oversikt over skjemaer og arbeidsflyt}
 \end{figure}
+\fi
 
 Registreringen av data vil delvis bli gjort av den legen som utfører prosedyren og delvis av annet helsepersonell og kontorpersonell. Fordelingen av arbeidet mellom disse personellgruppene vil være avhengig av lokale forhold ved det enkelte senter. Data vil bli registrert direkte via en web-løsning til lokale kvalitetsregister som er administrert av Helse Nord IKT. Data fra de enkelte lokale kvalitetsregistrene blir så overført til det nasjonale kvalitetsregisteret, NORIC. De sykehusene som tok i bruk registeret i 2013 var Haukeland universitetssjukehus (HUS) og Universitetssykehuset Nord-Norge (UNN).
 
@@ -1536,5 +1556,30 @@ Noen av disse rapportene vil kunne finnes på web-siden til registeret og dermed
 \listoffigures
 \listoftables
 
+% make backmatter available (since document is class report)
+\makeatletter
+\newcommand\backmatter{%
+  \if@openright
+    \cleardoublepage
+  \else
+    \clearpage
+  \fi
+ % \@mainmatterfalse
+   \pagenumbering{roman}}
+
+\makeatother
+
+<<addAnnotation, echo=F, results=tex, eval=T>>=
+
+if (usePdfAnnotation) {
+  cat('\\backmatter\n')
+  cat('\\section*{Kilder for videre bearbeidelse av årsrapporten}\n')
+  cat('Her er det satt av plass til nødvendige vedlegg.\n\n')
+} else {
+  pdfAttachFiles <- character(0)
+}
+@
+
+\SweaveInput{SweaveChildAddAnnotation.Rnw}
 
 \end{document}
