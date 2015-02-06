@@ -52,13 +52,20 @@ stent.query <- "
 SELECT
    S.MCEID,
    P.GENDER,
+<<<<<<< HEAD
    P.BIRTH_DATE,
+=======
+>>>>>>> 726e155217ccdf3dd8f3d06d72b273e7c1888e4b
    R.INDIKATION,
    R.INTERDAT,
    R.HEIGHT,
    R.WEIGHT,
    S.SEGMENT,
    S.STENT,
+<<<<<<< HEAD
+=======
+   ST.SID,
+>>>>>>> 726e155217ccdf3dd8f3d06d72b273e7c1888e4b
    ST.STENTNAMN,
    ST.DES,
    S.BALLONGLANGD,
@@ -81,9 +88,15 @@ SELECT
    S.UPPBLASNINGSTIDDEB
 FROM segment S
    INNER  JOIN stent ST ON S.STENT=ST.SID
+<<<<<<< HEAD
    INNER JOIN mce M ON S.MCEID=M.MCEID
    INNER JOIN patient P ON M.PATIENT_ID=P.ID
    LEFT JOIN regangio R ON S.MCEID=R.MCEID;"
+=======
+   INNER JOIN regangio R ON S.MCEID=R.MCEID
+   INNER JOIN mce M ON S.MCEID=M.MCEID
+   INNER JOIN patient P ON M.PATIENT_ID=P.ID;"
+>>>>>>> 726e155217ccdf3dd8f3d06d72b273e7c1888e4b
 
 dat.stent <- dbGetQuery( con , stent.query )
 

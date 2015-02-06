@@ -337,6 +337,26 @@ dat <- merge(
     by = "MCEID")
 
 
+<<<<<<< HEAD
+=======
+dat <- merge(
+    x = dat,
+    y = initialcarelab[ , c(
+        "MCEID",
+        "B_GLUCOSE",
+        "BIOCHEMICAL_MARKER_TYPE",
+        "BIOCHEMICAL_MARKER_VALUE",
+        "CHOLESTEROL_TOTAL",
+        "CRP",
+        "HBA1CMOL",
+        "HDL_CHOLESTEROL",
+        "HEMOGLOBIN",
+        "LDL_MEASURED",
+        "S_CREATININ",
+        "TRIGLYCERIDES")] ,
+    by = "MCEID")
+
+>>>>>>> 726e155217ccdf3dd8f3d06d72b273e7c1888e4b
 @ 
 
 
