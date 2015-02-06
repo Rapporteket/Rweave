@@ -1,0 +1,819 @@
+
+\documentclass[norsk, a4paper]{report}
+
+\usepackage[utf8x]{inputenc}
+\usepackage{babel}
+\usepackage{authblk}
+\usepackage{longtable}
+\usepackage{multicol}
+\usepackage{color}
+\usepackage{wasysym}
+\usepackage[raggedright]{titlesec}
+\usepackage{color,hyperref}
+
+% added by reinhard.seifert@helse-bergen.no for NORIC:
+\usepackage{booktabs}
+\usepackage{rotating}
+\usepackage{Sweave}
+
+
+
+
+
+
+
+% Gjør alle lenker mørkeblå
+\definecolor{darkblue}{rgb}{0.0,0.0,0.3}
+\hypersetup{colorlinks,breaklinks,linkcolor=darkblue,urlcolor=darkblue,anchorcolor=darkblue,citecolor=darkblue}
+
+% Ikke sett inn sidenummer for ``Parts''
+\makeatletter
+\let\sv@endpart\@endpart
+\def\@endpart{\thispagestyle{empty}\sv@endpart}
+\makeatother
+
+% Ikke bruk innrykk for nye avsnitt, men heller litt større vertikal avatand
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1ex plus 0.5ex minus 0.2ex}
+
+
+% Sett registerets navn
+\def \registernavn {\textit{Norsk register for invasiv kardiologi (NORIC)}}
+
+
+% tittelting
+\title{\registernavn \\ \textbf{Årsrapport for \textit{2013} med \\
+plan for forbedringstiltak}}
+
+\author[$\dag$]{Siren Hovland\thanks{Daglig leder: \texttt{siren.hovland@helse-bergen.no}}}
+\author[$\dag$]{Reinhard Seifert\thanks{Statistiker: \texttt{reinhard.seifert@helse-bergen.no}}}
+\author[$\dag$]{Janne Dyngeland\thanks{Registerkoordinator: \texttt{janne.dyngeland@helse-bergen.no}}}
+\author[$\dag$]{Svein Rotevatn\thanks{Faglig leder: \texttt{svein.rotevatn@helse-bergen.no}}}
+\affil[$\dag$]{NORIC\\Norsk register for invasiv kardiologi \\
+Haukeland universitetssjukehus \\
+Hjerteavdelingen \\
+Postboks 1400 \\
+Jonas Lies vei 65 \\
+5021 Bergen \\
+epost \texttt{noric@helse-bergen.no} \\
+Telefon 55 97 22 20}
+
+\renewcommand\Authands{ og }
+\renewcommand\Authfont{\scshape}
+\renewcommand\Affilfont{\itshape\small}
+
+
+
+
+
+% overstyre mulige ord-deling-er
+\hyphenation{stadium-vurder-ing system-atiske pasi-ent-rap-porterte
+retnings-linjer hjemmelsgrunnlag data-behandlings-ansvar nasjon-ale
+indi-kator-er styrings-gruppe}
+
+
+
+\begin{document}
+
+\maketitle
+
+
+\tableofcontents
+
+
+\part{Årsrapport}\label{par:rap}
+\thispagestyle{empty}
+
+
+\chapter{Sammendrag}
+Norsk register for invasiv kardiologi (NORIC) ble etablert som nasjonalt medisinsk kvalitetsregister i 2012. NORIC inngår som et av flere kvalitetsregistre knyttet til Hjerte- og karregisteret ved det nasjonale folkehelseinstitutt. Registeret omfatter invasive kardiologiske prosedyrer som koronar angiografi og perkutan koronar intervensjon (PCI), og har også modul for perkutan hjerteklaffbehandling og CT-angiografi.
+Programvaren for registrering av pasientdata ble tatt i bruk ved Haukeland universitetssjukehus (HUS) 1.januar 2013 og ved Universitetssykehuset Nord-Norge (UNN) fra 1. mai 2013. Registerplattformen er senere (2014) blitt implementert ved ytterligere 4 av landets øvrige invasive sentre, mens 2 sykehus ikke har startet ennå.
+Resultatene for 2013 omfatter derfor bare UNN og HUS, og viser stor grad av samsvar når det gjelder andel av pasienter som får utført PCI (41 \%). Andelen av planlagte (elektive) prosedyrer er høyere ved UNN (48,7 \%) enn ved HUS (40,2 \%), mens andelen subakutte prosedyrer er tilsvarende lavere ved UNN (39 \%) sammenlignet med HUS (46 \%). Andelen av pasienter med indikasjon stabil koronarsykdom er høyere ved UNN (38,6 \%) enn ved HUS (29,2 \%), mens andelen ustabil angina er lavere ved UNN (14.4 \%) enn ved HUS (21 \%). Registreringene viser at det er betydelige forskjeller i bruk av supplerende intrakoronar diagnostikk ved de to sykehusene, med større bruk av intravaskulær ultralyd (IVUS) og måling av fractional flow reserve (FFR) ved HUS. 
+Analyser av ventetid for pasienter med non-ST-segment-elevation myocardial infarction (NSTEMI) viser betydelig forskjeller mellom de to sykehusene med vesentlig lengre ventetid ved HUS enn ved UNN. For pasienter som blir innlagt direkte til disse sykehusene er median ventetid 2 døgn ved HUS og 1 døgn ved UNN. For pasienter som først blir innlagt ved annet sykehus er median ventetid ved HUS 5 døgn og 3 døgn ved UNN. Spesielt ved HUS er ventetiden for mange pasienter vesentlig lengre enn det som er anbefalt i internasjonale retningslinjer.
+
+
+\chapter{Registerbeskrivelse}\label{cha:reg}
+
+
+\section{Bakgrunn og formål}
+
+\subsection{Bakgrunn for registeret}\label{sec:bak}
+Norsk register for invasiv kardiologi (NORIC) er et nasjonalt kvalitetsregister som omfatter invasive kardiologiske prosedyrer som blir utført ved sykehus i Norge. Det innbefatter i første rekke undersøkelser og behandlingsformer som koronar angiografi og PCI der tilgangen til hjertet er perkutan, til forskjell fra åpen kirurgisk tilgang. Registeret har også moduler for perkutan hjerteklaff-behandling og for koronar CT-angiografi. Registeret omfatter ikke elektrofysiologiske undersøkelser og behandlinger, og ikke pacemakerbehandling. Forventet volum av prosedyrer er knapt 30000 årlige angiografier og 12000 PCIer.  
+
+\subsection{Registerets formål}\label{sec:for}
+Overordnet formål med registeret er gitt ved Hjerte- og karregisterforskriften §1-2: 
+``Formålet med Hjerte- og karregisteret er å bidra til bedre kvalitet på helsehjelpen til personer med hjerte- og karsykdommer. Opplysninger i registeret skal benyttes til forebyggende arbeid, kvalitetsforbedring og helseforskning. Registeret skal også utgjøre et grunnlag for styring og planlegging av helsetjenester rettet mot personer med hjerte- og karsykdommer, overvåkning av nye tilfeller og forekomst av slike sykdommer i befolkningen''.
+
+\section{Juridisk hjemmelsgrunnlag}\label{cha:jur}
+Lovhjemmel for registeret er Helseregisterloven med tilknyttet forskrift: Forskrift om innsamling og behandling av helseopplysninger i Nasjonalt register over hjerte- og karlidelser (Hjerte- og karregisterforskriften). 
+
+\section{Faglig ledelse og databehandlingsansvar}\label{cha:led}
+Det er ansatt en faglig leder i 20 \% stilling som er invasiv kardiolog. I tillegg er det ansatt daglig leder (60\%), registerkoordinator (40\%) og statistiker (50\%). Norsk register for invasiv kardiologi er lagt til Hjerteavdelingen ved Haukeland universitetssjukehus. Det ble inngått en skriftlig databehandler avtale mellom Helse Bergen HF og Nasjonalt folkehelseinstitutt den 10. oktober 2013.
+
+\subsection{Aktivitet i styringsgruppe/referansegruppe}
+Registeret har etablert en nasjonal faglig styringsgruppe bestående av én representant fra hvert av de sykehusene som utfører prosedyrer omfattet av registeret. I 2013 ble det avholdt to møter som i hovedsak omhandlet gjennomgang av variabler samt plan for oppstart av pasientregistreringer på de resterende 6 av totalt 8 invasive sentre.  
+
+
+
+
+
+
+\chapter{Resultater}\label{cha:res}
+
+
+\section{Innledning}
+
+Resultatrapporteringen omfatter bare data fra Universitetssykehuset Nord-Norge (UNN) og Haukeland universitetssjukehus (HUS) for 2013. Analysene er utarbeidet i Rapporteket og er så langt nokså grunnleggende. 
+Enkle tabeller og figurer omtaler totalt antall og prosentandel av gjennomførte angiografier og PCIer etter det enkelte sykehus (PCI senter) med følgende utvalgte registreringskategorier:
+
+\begin{itemize}
+  \item{Prosedyretype}
+    \begin{itemize}
+      \item{Angio}
+      \item{PCI}
+      \item{Angio+PCI}
+    \end{itemize}
+
+Angio innebærer diagnostisk hjertekaterisering med røntgenkontrast. PCI omfatter ulike perkutane intervensjonsmetoder for behandling av stenose/okklusjon i ett eller flere koronarkar. Ved Angio+PCI gjøres intervensjonen i direkte tilknytning til angiografiundersøkelsen.
+
+  \item{Hastegrad}
+    \begin{itemize}
+      \item{Planlagt}
+      \item{Akutt}
+      \item{Subakutt}
+    \end{itemize}
+
+Planlagte prosedyrer gjelder all elektiv utredning og behandling. Subakutt omfatter de prosedyrer som må utføres før pasienten kan skrives ut fra sykehuset. Med akutt menes prosedyrer som ikke kan utsettes, men må gjennomføres umiddelbart på grunn av pasientens tilstand.
+
+  \item{Vakttid}
+    \begin{itemize}
+      \item{Subakutt tilfelle på dagtid}
+      \item{Subakutt tilfelle på vakttid}
+      \item{Akutt tilfelle på dagtid}
+      \item{Akutt tilfelle på vakttid}
+    \end{itemize}
+
+
+  \item{Indikasjon}
+    \begin{itemize}
+      \item{SCAD = Stabil koronarsykdom}
+      \item{UAP = Ustabil angina pectoris}
+      \item{NSTEMI = non-ST segment elevation myocardial infarction}
+      \item{STEMI = ST segment elevation myocardial infarction}
+      \item{Annet}
+    \end{itemize}
+
+
+  \item{Primær beslutning:}
+    \begin{itemize}
+      \item{Ingen behandling}
+      \item{Fortsatt medisinsk behandling}
+      \item{Diskusjon/uavklart}
+      \item{PCI ad hoc}
+      \item{Annet}
+    \end{itemize}
+
+Den primære beslutningen refererer til angiograførens preliminære og mest sannsynlige beslutning etter avsluttet angiografi. 
+
+Ingen behandling betyr at det ikke er behov for PCI, hjertekirurgi eller medisinsk behandling. PCI ad hoc betyr at det blir utført PCI direkte i tilslutning til angiografi. 
+
+  \item{Funn:}
+    \begin{itemize}
+      \item{1-kar ikke HS}
+      \item{2-kar ikke HS}
+      \item{3-kar ikke HS}
+      \item{HS}
+      \item{HS + 1-kar}
+      \item{HS + 2-kar}
+      \item{HS + 3-kar}
+      \item{Ikke konklusiv}
+      \item{Normalt/Ateromatose}
+    \end{itemize}
+       
+1-3-kar referer til hvor mange av koronarkarene som har stenoser (innsnevringer).
+HS er stenose i venstre hovedstamme. 
+
+
+  \item{Annen diagnostikk ved angiografi:}
+    \begin{itemize}
+      \item{FFR = Fractional flow reserve}
+      \item{IVUS = intravaskulær ultralyd}
+    \end{itemize}
+
+FFR refererer til måling av intrakoronart trykk under infusjon med Adenosin og utføres for å vurdere hvorvidt en stenose er signifikant eller ikke. IVUS nyttes ved behov for ytterligere billeddiagnostikk i forbindelse med angiografi og PCI.
+
+\end{itemize}
+
+Manglende registreringer er i alle tabeller oppført som et enkelt mål for registreringskvaliteten. Haukeland universitetssjukehus (HUS) og Universitetssykehuset Nord-Norge (UNN) var de eneste sykehusene som tok i bruk NORIC i 2013, med oppstart fra henholdsvis 01.januar og 1. mai (figur \ref{fig:N:SHUS}). 
+
+Registreringene viser stor grad av samsvar mellom sykehusene når det gjelder andel av pasienter som får utført PCI (41 \%). Andelen av planlagte (elektive) prosedyrer er høyere ved UNN (48,7 \%) enn ved HUS (40,2 \%), mens andelen subakutte prosedyrer er tilsvarende lavere ved UNN (39 \%) sammenlignet med HUS (46 \%). Andelen av pasienter med indikasjon stabil koronarsykdom er høyere ved UNN (38,6 \%) enn ved HUS (29,2 \%), mens andelen ustabil angina er lavere ved UNN (14.4 \%) enn ved HUS (21 \%). Prosentandel av prosedyrer i registrerings-kategoriene var nokså sammenlignbart, med unntak av 9,4 \% høyere andel stabile pasienter ved HUS (tabell \ref{tab:pros:ind}) som samsvarer med en 7,5 \% lavere andel normale funn (tabell \ref{tab:pros:funn}).
+
+Registreringene viser at det er forskjeller i bruk av supplerende intrakoronar diagnostikk ved de to sykehusene, med større bruk av intravaskulær ultralyd (IVUS) og måling av fractional flow reserve (FFR) ved HUS. 
+
+Analyser av ventetid for pasienten med NSTEMI (ikke-ST-elevasjonsinfarkt) viser betydelige forskjeller mellom de to sykehusene med vesentlig lengre ventetid ved HUS enn ved UNN. For pasienter som blir innlagt direkte til disse sykehusene er median ventetid 2 døgn ved HUS og 1 døgn ved UNN.  For pasienter som blir først innlagt ved annet sykehus er median ventetid ved HUS 5 døgn og 3 døgn ved UNN. Spesielt ved HUS er ventetiden for mange pasienter vesentlig lengre enn det som er anbefalt i internasjonale retningslinjer.  
+
+
+
+\section{Antall registrerte prosedyrer}
+
+\begin{figure}[ht]
+  \centering
+  \label{fig:N:SHUS}
+
+\includegraphics[width=0.95\textwidth]{N_procedures_month_PCIcenter.pdf}\caption{Antall prosedyrer etter måned og PCI senter}
+\end{figure}
+
+
+
+ %%% mcetype
+
+\clearpage
+\subsection{\ldots etter hastegrad}
+  
+\begin{figure}[ht]
+  \centering
+\includegraphics[width=0.95\textwidth]{N_procedures_mcetype_PCIcenter.pdf}\caption{Antall prosedyrer etter hastegrad og PCI senter}
+\end{figure}
+
+
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrr}
+  \toprule
+ & \begin{sideways} Planlagt \end{sideways} & \begin{sideways} Akutt \end{sideways} & \begin{sideways} Subakutt \end{sideways} & \begin{sideways} NA \end{sideways} & \begin{sideways} Sum \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 1287 & 444 & 1473 & 0 & 3204 \\ 
+  Universitetssykehuset Nord-Norge & 889 & 225 & 713 & 0 & 1827 \\ 
+  Sum & 2176 & 669 & 2186 & 0 & 5031 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Antall prosdyrer etter hastegrad og PCI senter} 
+\end{table}
+
+\clearpage
+\begin{figure}[ht]
+  \centering
+\includegraphics[width=0.95\textwidth]{r_procedures_mcetype_PCIcenter.pdf}\caption{Prosentandel prosedyrer etter hastegrad og PCI senter}
+\end{figure}
+
+
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrr}
+  \toprule
+ & \begin{sideways} Planlagt \end{sideways} & \begin{sideways} Akutt \end{sideways} & \begin{sideways} Subakutt \end{sideways} & \begin{sideways} NA \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 40.2 & 13.9 & 46.0 & 0.0 \\ 
+  Universitetssykehuset Nord-Norge & 48.7 & 12.3 & 39.0 & 0.0 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Prosentandel prosdyrer etter hastegrad og PCI senter} 
+\end{table}\end{tiny}
+
+
+
+\clearpage
+\subsection{\ldots etter type (Angio/PCI)}
+
+   %%% REGTYP
+
+\begin{figure}[ht]
+  \centering
+\includegraphics[width=0.95\textwidth]{N_procedures_regtyp_PCIcenter.pdf}  \caption{Antall prosedyrer etter type og PCI senter}
+\end{figure}
+
+
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrr}
+  \toprule
+ & \begin{sideways} Angio \end{sideways} & \begin{sideways} PCI \end{sideways} & \begin{sideways} Angio+PCI \end{sideways} & \begin{sideways} NA \end{sideways} & \begin{sideways} Sum \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 1914 & 169 & 1121 & 0 & 3204 \\ 
+  Universitetssykehuset Nord-Norge & 1068 & 69 & 690 & 0 & 1827 \\ 
+  Sum & 2982 & 238 & 1811 & 0 & 5031 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Antall prosdyrer etter type og PCI senter} 
+\end{table}\end{tiny}
+
+\clearpage
+
+
+
+\begin{figure}[ht]
+  \centering
+\includegraphics[width=0.95\textwidth]{r_procedures_regtyp_PCIcenter.pdf}  \caption{Prosentandel prosedyrer etter type og PCI senter}
+\end{figure}
+
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrr}
+  \toprule
+ & \begin{sideways} Angio \end{sideways} & \begin{sideways} PCI \end{sideways} & \begin{sideways} Angio+PCI \end{sideways} & \begin{sideways} NA \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 59.7 & 5.3 & 35.0 & 0.0 \\ 
+  Universitetssykehuset Nord-Norge & 58.5 & 3.8 & 37.8 & 0.0 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Prosentandel prosdyrer etter type og PCI senter} 
+\end{table}\end{tiny}
+
+
+
+\clearpage
+\subsection{\ldots etter vakttid}
+
+
+   %%% JOURTID
+
+\begin{figure}[ht]
+  \centering
+\includegraphics[width=0.95\textwidth]{N_procedures_jourtid_PCIcenter.pdf}  \caption{Antall prosdyrer etter vakttid og PCI senter}
+\end{figure}
+
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrrr}
+  \toprule
+ & \begin{sideways} Planlagt på dagtid \end{sideways} & \begin{sideways} Akuttilfelle på dagtid \end{sideways} & \begin{sideways} Akuttilfelle på vakttid \end{sideways} & \begin{sideways} Subakuttilfelle på dagtid \end{sideways} & \begin{sideways} Subakuttilfelle på vakttid \end{sideways} & \begin{sideways} NA \end{sideways} & \begin{sideways} Sum \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 1280 & 190 & 219 & 1272 & 98 & 145 & 3204 \\ 
+  Universitetssykehuset Nord-Norge & 886 & 64 & 122 & 412 & 116 & 227 & 1827 \\ 
+  Sum & 2166 & 254 & 341 & 1684 & 214 & 372 & 5031 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Antall prosedyrer etter vakttid og PCI senter} 
+\end{table}\end{tiny}
+
+\clearpage
+
+
+\begin{figure}[ht]
+  \centering
+\includegraphics[width=0.95\textwidth]{r_procedures_jourtid_PCIcenter.pdf}  \caption{Prosentandel prosdyrer etter vakttid og PCI senter}
+\end{figure}
+
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrr}
+  \toprule
+ & \begin{sideways} Planlagt på dagtid \end{sideways} & \begin{sideways} Akuttilfelle på dagtid \end{sideways} & \begin{sideways} Akuttilfelle på vakttid \end{sideways} & \begin{sideways} Subakuttilfelle på dagtid \end{sideways} & \begin{sideways} Subakuttilfelle på vakttid \end{sideways} & \begin{sideways} NA \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 40.0 & 5.9 & 6.8 & 39.7 & 3.1 & 4.5 \\ 
+  Universitetssykehuset Nord-Norge & 48.5 & 3.5 & 6.7 & 22.6 & 6.3 & 12.4 \\ 
+  Sum & 43.1 & 5.0 & 6.8 & 33.5 & 4.3 & 7.4 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Prosentandel prosedyrer etter vakttid og PCI senter} 
+\end{table}\end{tiny}
+
+
+
+\clearpage
+\subsection{\ldots etter indikasjon}
+
+   %%% INDIKATION
+
+\begin{figure}[ht]
+  \centering
+\includegraphics[width=0.95\textwidth]{N_procedures_indikation_PCIcenter.pdf}  \caption{Antall prosedyrer etter indikasjon og PCI senter (SCAD = stabil koronarsykdom, UAP = ustabil angina pectoris, NSTEMI = non-ST-elevasjon myokardinfarkt, STEMI = ST-elevasjon myokardinfarkt)}
+\end{figure}
+
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrrr}
+  \toprule
+ & \begin{sideways} SCAD \end{sideways} & \begin{sideways} UAP \end{sideways} & \begin{sideways} NSTEMI \end{sideways} & \begin{sideways} STEMI \end{sideways} & \begin{sideways} Annet \end{sideways} & \begin{sideways} NA \end{sideways} & \begin{sideways} Sum \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 936 & 674 & 757 & 335 & 471 & 31 & 3204 \\ 
+  Universitetssykehuset Nord-Norge & 705 & 263 & 399 & 127 & 324 & 9 & 1827 \\ 
+  Sum & 1641 & 937 & 1156 & 462 & 795 & 40 & 5031 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Antall prosedyrer etter indikasjon og PCI senter} 
+\end{table}\end{tiny}
+
+\clearpage
+
+
+
+\begin{figure}[ht]
+  \centering
+\includegraphics[width=0.95\textwidth]{r_procedures_indikation_PCIcenter.pdf}  \caption{Prosentandel prosedyrer etter indikasjon og PCI senter (SCAD = stabil koronarsykdom, UAP = ustabil angina pectoris, NSTEMI = non-ST-elevasjon myokardinfarkt, STEMI = ST-elevasjon myokardinfarkt)}
+\end{figure}
+
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrr}
+  \toprule
+ & \begin{sideways} SCAD \end{sideways} & \begin{sideways} UAP \end{sideways} & \begin{sideways} NSTEMI \end{sideways} & \begin{sideways} STEMI \end{sideways} & \begin{sideways} Annet \end{sideways} & \begin{sideways} NA \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 29.2 & 21.0 & 23.6 & 10.5 & 14.7 & 1.0 \\ 
+  Universitetssykehuset Nord-Norge & 38.6 & 14.4 & 21.8 & 7.0 & 17.7 & 0.5 \\ 
+  Sum & 32.6 & 18.6 & 23.0 & 9.2 & 15.8 & 0.8 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Prosentandel prosedyrer etter indikasjon og PCI senter} 
+\label{tab:pros:ind}
+\end{table}\end{tiny}
+
+
+
+\clearpage
+\subsection{\ldots etter primær beslutning}
+
+   %%% PRIMBES
+
+\begin{figure}[ht]
+  \centering
+\includegraphics[width=0.95\textwidth]{N_procedures_primbes_PCIcenter.pdf}  \caption{Antall prosedyrer etter primær beslutning og PCI senter}
+\end{figure}
+
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrrrr}
+  \toprule
+ & \begin{sideways} Ingen behandling \end{sideways} & \begin{sideways} Fortsatt medisinsk behandling \end{sideways} & \begin{sideways} Diskusjon/uavklart \end{sideways} & \begin{sideways} PCI elektiv \end{sideways} & \begin{sideways} PCI ad hoc \end{sideways} & \begin{sideways} Annet \end{sideways} & \begin{sideways} NA \end{sideways} & \begin{sideways} Sum \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 136 & 1012 & 676 & 65 & 1115 & 2 & 198 & 3204 \\ 
+  Universitetssykehuset Nord-Norge & 179 & 474 & 363 & 28 & 686 & 19 & 78 & 1827 \\ 
+  Sum & 315 & 1486 & 1039 & 93 & 1801 & 21 & 276 & 5031 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Antall prosedyrer etter primær beslutning og PCI senter} 
+\end{table}\end{tiny}
+
+\clearpage
+
+
+\begin{figure}[ht]
+  \centering
+\includegraphics[width=0.95\textwidth]{r_procedures_primbes_PCIcenter.pdf}  \caption{Prosentandel prosedyrer etter primær beslutning og PCI senter}
+\end{figure}
+
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrrr}
+  \toprule
+ & \begin{sideways} Ingen behandling \end{sideways} & \begin{sideways} Fortsatt medisinsk behandling \end{sideways} & \begin{sideways} Diskusjon/uavklart \end{sideways} & \begin{sideways} PCI elektiv \end{sideways} & \begin{sideways} PCI ad hoc \end{sideways} & \begin{sideways} Annet \end{sideways} & \begin{sideways} NA \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 4.2 & 31.6 & 21.1 & 2.0 & 34.8 & 0.1 & 6.2 \\ 
+  Universitetssykehuset Nord-Norge & 9.8 & 25.9 & 19.9 & 1.5 & 37.5 & 1.0 & 4.3 \\ 
+  Sum & 6.3 & 29.5 & 20.7 & 1.8 & 35.8 & 0.4 & 5.5 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Prosentandel prosedyrer etter primær beslutning og PCI senter} 
+\end{table}\end{tiny}
+
+
+
+\clearpage
+\subsection{\ldots etter funn}
+
+
+   %%% FYND
+
+\begin{figure}[ht]
+  \centering
+\includegraphics[width=0.95\textwidth]{N_procedures_fynd_PCIcenter.pdf}  \caption{Antall prosedyrer etter funn og PCI senter (HS = hovedstamme stenose)}
+\end{figure}
+
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrrrrrrr}
+  \toprule
+ & \begin{sideways} 1-kar ikke HS \end{sideways} & \begin{sideways} 2-kar ikke HS \end{sideways} & \begin{sideways} 3-kar ikke HS \end{sideways} & \begin{sideways} HS \end{sideways} & \begin{sideways} HS + 1-kar \end{sideways} & \begin{sideways} HS + 2-kar \end{sideways} & \begin{sideways} HS + 3-kar \end{sideways} & \begin{sideways} Ikke konklusiv \end{sideways} & \begin{sideways} Normalt/Ateromatose \end{sideways} & \begin{sideways} NA \end{sideways} & \begin{sideways} Sum \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 846 & 554 & 614 & 13 & 37 & 77 & 167 & 1 & 859 & 36 & 3204 \\ 
+  Universitetssykehuset Nord-Norge & 493 & 289 & 270 & 8 & 30 & 29 & 71 & 1 & 627 & 9 & 1827 \\ 
+  Sum & 1339 & 843 & 884 & 21 & 67 & 106 & 238 & 2 & 1486 & 45 & 5031 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Antall prosedyrer etter funn og PCI senter} 
+\end{table}\end{tiny}
+
+\clearpage
+
+
+
+\begin{figure}[ht]
+  \centering
+\includegraphics[width=0.95\textwidth]{r_procedures_fynd_PCIcenter.pdf}  \caption{Prosentandel prosedyrer etter funn og PCI senter (HS = hovedstamme stenose)}
+\end{figure}
+
+\begin{tiny}
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrrrrrrrr}
+  \toprule
+ & \begin{sideways} 1-kar ikke HS \end{sideways} & \begin{sideways} 2-kar ikke HS \end{sideways} & \begin{sideways} 3-kar ikke HS \end{sideways} & \begin{sideways} HS \end{sideways} & \begin{sideways} HS + 1-kar \end{sideways} & \begin{sideways} HS + 2-kar \end{sideways} & \begin{sideways} HS + 3-kar \end{sideways} & \begin{sideways} Ikke konklusiv \end{sideways} & \begin{sideways} Normalt/Ateromatose \end{sideways} & \begin{sideways} NA \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 26.4 & 17.3 & 19.2 & 0.4 & 1.2 & 2.4 & 5.2 & 0.0 & 26.8 & 1.1 \\ 
+  Universitetssykehuset Nord-Norge & 27.0 & 15.8 & 14.8 & 0.4 & 1.6 & 1.6 & 3.9 & 0.1 & 34.3 & 0.5 \\ 
+  Sum & 26.6 & 16.8 & 17.6 & 0.4 & 1.3 & 2.1 & 4.7 & 0.0 & 29.5 & 0.9 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Prosentandel prosedyrer etter funn og PCI senter} 
+\label{tab:pros:funn}
+\end{table}\end{tiny}
+
+
+
+\clearpage
+\section{Antall annen diagnostikk}
+
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrrr}
+  \toprule
+ & \begin{sideways} Antall FFR \end{sideways} & \begin{sideways} Prosentandel FFR \end{sideways} & \begin{sideways} Antall IVUS \end{sideways} & \begin{sideways} Prosentandel IVUS \end{sideways} \\ 
+  \midrule
+Haukeland universitetssjukehus & 220 & 6.9 & 75 & 2.3 \\ 
+  Universitetssykehuset Nord-Norge & 81 & 4.4 & 9 & 0.5 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Totalt antall annen diagnostikk etter PCI senter (prosentandel per totalt antall gjennomførte prosedyrer).} 
+\end{table}
+
+
+
+\section{Tid fra innleggelse i sykehus til prosedyre}
+
+% latex table generated in R 3.1.1 by xtable 1.7-4 package
+% Mon Oct  6 11:52:06 2014
+\begin{table}[ht]
+\centering
+\begin{tabular}{rrrr}
+  \toprule
+ & 25\% & 50\% & 75\% \\ 
+  \midrule
+Haukeland universitetssjukehus / Henvist & 3.0 & 5.0 & 7.0 \\ 
+  Universitetssykehuset Nord-Norge / Henvist & 2.0 & 3.0 & 5.0 \\ 
+  Haukeland universitetssjukehus / Direkte & 1.0 & 2.0 & 4.5 \\ 
+  Universitetssykehuset Nord-Norge / Direkte & 0.0 & 1.0 & 1.0 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Percentiler (25\%, 50\% og 75\% ) av antall dager fra innleggelse i sykehus til prosedyre etter henvisnings status og PCI senter. NB: I denne tidlige versjonen av rapportsystemet er ventetider >30 dager eksludert (n=11 fra UNN og n=13 fra HUS. Alle n=24 viser inkonsistente dato-registreringer og må korrigeres manuellt). Siden quartiler og median er robust mot uteliggende feilregistreringer. Tallene er rapportert uten en manuell kvalitetskontroll og er sansynligvis for konservative.} 
+\end{table}
+
+
+
+\clearpage
+\chapter{Metoder for fangst av data}\label{cha:metoder}
+
+\section{Arbeitsflyt}
+\begin{figure}
+  \label{fig:workflow}
+  \includegraphics[width=0.95\textwidth]{noric_workflow.png}
+  \caption{Oversikt over skjemaer og arbeidsflyt}
+\end{figure}
+
+Registreringen av data vil delvis bli gjort av den legen som utfører prosedyren og delvis av annet helsepersonell og kontorpersonell. Fordelingen av arbeidet mellom disse personellgruppene vil være avhengig av lokale forhold ved det enkelte senter. Data vil bli registrert direkte via en web-løsning til lokale kvalitetsregister som er administrert av Helse Nord IKT. Data fra de enkelte lokale kvalitetsregistrene blir så overført til det nasjonale kvalitetsregisteret, NORIC. De sykehusene som tok i bruk registeret i 2013 var Haukeland universitetssjukehus (HUS) og Universitetssykehuset Nord-Norge (UNN).
+
+Figur \ref{fig:workflow} gir en oversikt over registerets fire skjemaer med et utvalg av tilhørende variabler. Ved HUS er det den enkelte operatør som primært fyller ut hovedskjemaet i registeret. De resterende skjemaer blir supplert i ettertid av annet helsepersonell. Ved UNN er det operatøren som i hovedsak fyller ut samtlige skjemaer. 
+
+
+
+\chapter{Metodisk kvalitet}\label{cha:kva}
+
+\section{Antall registreringer}\label{sec:reg}
+Per 31.12.2013 var det 5031 registrerte opphold i NORIC, hvor opphold er definert som besøk eller undersøkelser ved invasivt kardiologisk laboratorium for diagnostikk eller behandling. Disse oppholdene er fordelt på 2982 angiografier, 1811 med kombinert angiografi + PCI, og 238 prosedyrer der det bare ble utført PCI, det vi si til sammen 4793 koronar angiografier og 2049 PCIer (jfr. tabell 3.3).  
+
+\section{Metode for beregning av dekningsgrad}\label{sec:met}
+NORIC er ennå ikke koblet til basisregisteret ved Folkehelseinstituttet, så dekningsgradsanalyser er begrenset til summariske opplysninger fra sykehusinterne datasystem. Dette er bare utført for HUS ved hjelp av registreringer i Orbit, da det ikke er tilsvarende registreringer ved UNN. 
+
+\section{Dekningsgrad på institusjonsnivå}\label{sec:endek}
+For 2013 er det ved HUS registrert 3035 angiografier og 1290 PCIer i NORIC og 3133 angiografier og 1360 PCIer  i Orbit. Dette gir en dekningsgrad på henholdsvis 97 og 95 \%.
+
+\section{Dekningsgrad på individnivå}\label{sec:obs}
+Ikke utført for 2013.
+
+\section{Metoder for intern sikring av datakvalitet}\label{sec:sik}
+Under utfyllingen av det web-baserte registreringsskjemaet blir variabler der dette er mulig og aktuelt, automatisk sjekket mot andre variabler for å sikre samsvar mellom disse. Kvaliteten på data blir også forsøkt sikret ved å sjekke at de verdiene som blir lagt inn, er innenfor grenser som er sannsynlige eller tillatt. 
+
+Registreringene blir dels utfylt i tilknytning til selve prosedyren av operatør og radiograf/sykepleier. Etter intensjonen skal dette kvalitetssikres og bli supplert i ettertid av registreringspersonale ved det enkelte sykehus mot journalopplysninger og eventuelt annen informasjon som måtte foreligge. Praksis på dette punktet varierer nok en god del mellom deltakende sykehus.
+
+\section{Metode for validering av data i registeret}\label{sec:metval}
+Ikke utført for 2013.
+
+\section{Vurdering av datakvalitet}\label{sec:valdat}
+Ikke utført analyser av dette for 2013.
+
+
+
+
+\chapter{Fagutvikling og klinisk kvalitetsforbedring}\label{cha:fag}
+
+\section{Registerets spesifikke kvalitetsmål}\label{sec:regspe}
+Spesifikke kvalitetsmål er ikke endelig bestemt, men vil omfatte mål på om virksomheten er i samsvar med anbefalinger i internasjonale retningslinjer. Eksempler på dette er ventetid på invasiv utredning ved NSTEMI (ikke-ST-elevasjonsinfarkt) og ``Dør til ballongtid'' ved STEMI (ST-elevasjonsinfarkt). Vi vil også se på 30-dagers mortalitet etter PCI. Vi vil også utvikle andre prosedyrespesifikke kvalitetsmål som stråledoser ved angiografi.
+
+\section{Pasientrapporterte resultat- og erfaringsmål (PROM og PREM)}\label{sec:pasutk}
+Det er foreløpig ikke utarbeidet en plan for registrering av pasientrapporterte resultat- og erfaringsmål.
+
+\section{Sosiale og demografiske ulikheter i helse}\label{sec:sosdem}
+Sosiale og demografiske ulikheter er i liten grad med i registeret siden det ikke er hjemmel for å registrere dette i henhold til Hjerte- og karregisterforskriften. Det er kun variabler som alder, kjønn og kommunetilhørighet som nå registreres via kobling til Folkeregisteret.
+
+\section{Bidrag til utvikling av nasjonale retningslinjer, nasjonale kvalitetsindikatorer o.l.}\label{sec:retut}
+Dette vil bli tatt opp i løpet av høsten 2014.
+
+\section{Etterlevelse av nasjonale retningslinjer}\label{sec:retbru}
+Det er ikke utviklet nasjonale retningslinjer for dette fagområdet.
+
+\section{Identifisering av kliniske forbedringsområder}\label{sec:ide}
+Analyser som er utført for Haukeland universitetssjukehus har vist at ventetiden for angiografi/PCI ved NSTEMI er vesentlig lengre enn anbefalt i internasjonale aksepterte retningslinjer. Dette gjelder i særlig grad pasienter som henvises fra andre sykehus.
+
+\section{Tiltak for klinisk kvalitetsforbedring initiert av registeret}\label{sec:brures}
+Ledelsen ved aktuell avdeling er gjort oppmerksom på problemet med lang ventetid ved NSTEMI. Det blir forsøkt å prioritere denne type pasienter til slike undersøkelser, men utover det kjenner vi ikke til spesifikke tiltak.
+
+\section{Evaluering av tiltak for klinisk kvalitetsforbedring (endret praksis)}\label{sec:evakva}
+Det er kort tid siden resultatene ble lagt fram slik at analyser på utviklingen etter dette ikke er utført ennå.
+
+\section{Pasientsikkerhet}\label{sec:kom}
+I NORIC registreres komplikasjoner som kan være livstruende, behandlingskrevende, gi varige mén eller forlenge sykehusoppholdet for pasienten. Det skilles mellom komplikasjoner og/eller uønskede hendelser som oppstår i direkte tilknytning til prosedyren og etter at pasienten er overflyttet til sengepost eller sykehusavdeling. Dette omfatter en rekke variabler: allergiske reaksjoner, blødninger (registreres i detalj), vaskulær (utenom koronare kar), neurologisk komplikasjon, nytilkommet nyreinsuffisiens, tamponade, komplikasjon i behandlet koronarkar med ny PCI, ACB-operasjon på grunn av komplikasjon, hjerteinfarkt og død.
+
+
+
+\chapter{Formidling av resultater}\label{cha:dat}
+
+
+\section{Resultater tilbake til deltakende fagmiljø}\label{sec:resfag}
+Ved hjelp av Rapporteket er det nå laget 2 rapporter fra virksomheten ved det enkelte senter. Denne vil bli sendt regelmessig til fagmiljøet. Så snart det er etablert en samlet database for alle senter, vil tallene i rapporten til det enkelte senter kunne sammenlignes med tilsvarende for hele landet.
+
+\section{Resultater til administrasjon og ledelse}\label{sec:resled}
+Vi har så langt latt resultater fra registeret gå tjenestevei fra seksjonsledelse til høyere nivå.
+
+\section{Resultater til pasienter}\label{sec:respas}
+Vi har ikke gjennomført formidling av resultater til pasienter. Det planlegges oppretting av egen nettside hvor pasienter kan hente informasjon om registeret og hvor årsrapporter vil kunne lastes ned.
+
+\section{Offentliggjøring av resultater på institusjonsnivå}\label{sec:off}
+Resultater på institusjonsnivå blir for første gang presentert i denne årsrapporten, men er begrenset til resultater fra UNN og HUS som var de eneste som brukte registeret i 2013. Utenom dette er resultater for ventetider ved NSTEMI ved HUS presentert på Kvalitetsregisterkonferansen og på Vårmøtet i Norsk Cardiologisk Selskap.
+
+
+
+\chapter{Samarbeid og forskning}\label{cha:for}
+
+
+\section{Samarbeid med andre helse- og kvalitetsregistre}\label{sec:samfag}
+Vi samarbeider med det tilsvarende svenske kvalitetsregisteret for invasiv kardiologi (SCAAR). I oppbyggingen av NORIC har vi brukt SCAAR som modell, og det er viktig for oss å dra nytte av de erfaringer som er gjort gjennom mange år med registerarbeid der. Vi bruker i stor grad samme variabeldefinisjoner for å sikre at vi kan sammenligne resultater og bruke registrene i felles vitenskapelige publikasjoner.
+
+\section{Vitenskapelige arbeider}\label{sec:vitarb}
+Registeret er i oppbyggingsfase slik at det er svært begrenset hva vi har gjort så langt. Vi har presentert resultater fra Haukeland universitetssjukehus på Kvalitetsregisterkonferansen i 2014 og på vårmøtet til Norsk Cardiologisk Selskap.
+
+
+
+
+
+\part{Plan for forbedringstiltak}\label{par:for}
+
+\chapter{Forbedringstiltak}
+
+\section{Datafangst}
+
+Dataregistrering foregår på samme måte som tidligere ved at operatør sammen med sykepleier/radiograf og eget registreringspersonell legger inn bakgrunnsopplysninger om pasienten, data fra prosedyren og opplysninger om utskrivelsen og eventuelle komplikasjoner. I tillegg ønsker vi å utvikle et system for direkte overføring av stråledoser fra angiografi/PCI - prosedyrene til registeret.
+
+
+\section{Metodisk kvalitet}
+
+I 2013 var registeret tatt i bruk ved 2 sykehus og fra 1.1.2014 ved ytterligere 4 (tabell \ref{tab:oppstart}). Vi vil arbeide for at Rikshospitalet og Feiringklinikken også skal ta i bruk kvalitetsregisteret.
+
+Dekningsgradsanalyser vil bli gjennomført ved hjelp av data fra NPR når vi er koblet opp mot Nasjonalt hjerte- og karregister. For det enkelte sykehus vil vi tilstrebe løsninger for fortløpende kontroll (daglig/ukentlig) mot andre kliniske registreringssystem for å sjekke at alle pasienter blir registrert. Dette er allerede implementert ved Haukeland universitetssjukehus ved kontroll mot Orbit, et datasystem som blir brukt til planlegging av programmet på laboratoriene. 
+
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{lr}
+    \toprule
+    Sykehus & Oppstart dato\\
+    \midrule
+    Haukeland universitetssjukehus & 01.01.2013\\
+    Universitetssykehuset Nord-Norge & 01.05.2013\\
+    St. Olavs hospital & 01.01.2014\\
+    Stavanger universitetssjukehus & 01.01.2014\\
+    Sørlandet sykehus, Arendal & 01.01.2014\\
+    Oslo universitetssykehus, Ullevål & 01.01.2014\\
+    Oslo universitetssykehus, Rikshospitalet & Ikke startet ennå\\
+    Feiringklinikken & Ikke startet ennå\\
+    \bottomrule
+\end{tabular}
+\label{tab:oppstart}
+\caption{Oversikt over deltakende sykehus/senter og oppstarts dato}
+\end{table}
+
+
+
+\section{Fagutvikling og kvalitetsforbedring av tjenesten}
+
+I løpet av 2014 vil vi bestemme nye kvalitetsmål for registeret. I den forbindelse vil vi også se på de kvalitetsmål som blir brukt i Sverige på tilsvarende register der.  Disse er delvis basert på etterlevelse av aksepterte guidelines (retningslinjer) for behandling av spesifikke tilstander.   
+
+Vi ønsker å utvikle system for pasientrapporterte resultater, men er avhengig av finansiering for å gjennomføre dette. Vi vil også bidra til utvikling av nasjonale kvalitetsindikatorer innenfor invasiv kardiologi.
+
+Våre muligheter til å registrere demografiske og sosiale variabler er begrenset siden disse ikke er hjemlet i forskrift for Hjerte- og karregisteret.
+
+
+\section{Formidling av resultater}
+
+Vi har til nå laget en månedsrapport for virksomheten og en rapport som viser forbruket av forskjellige stenter. Vi vil videreutvikle rapportene til fagmiljøene med bl.a. ulike prosessmål og en rapport som viser stråledoser. Vi tar også sikte på å utvikle rapporter for den enkelte operatør, slik at vedkommende kan sjekke sin praksis med et gjennomsnitt for landet.  
+
+Noen av disse rapportene vil kunne finnes på web-siden til registeret og dermed tilgjengelig for pasienter og andre interesserte.
+
+
+
+
+\part{Stadievurdering}
+
+
+\chapter{Referanser til vurdering av stadium}
+
+\begin{longtable}{rp{7cm}lcc}
+  \caption[Vurderingspunkter for stadium \registernavn]
+  {Vurderingspunkter for stadium \registernavn} \\
+  \hline 	 
+  Nr & Beskrivelse & Kapittel & Ja & Nei \\ 	 
+  \hline 	 
+  \endfirsthead 	 
+  \caption[]{forts.}\\ 	 
+  \hline 	 
+  Nr & Beskrivelse & Kapittel & Ja & Nei \\
+  \hline 	 
+  \endhead
+  \\
+  \multicolumn{4}{c}{\textit{Tabellen fortsetter på neste side}} \\
+  \hline
+  \endfoot 	 
+  \hline 	 
+  \endlastfoot
+
+  & \textbf{Stadium 2} & & \\
+  1 & Er i drift og samler data fra HF i alle helseregioner & \ref{cha:res} & \Square & \CheckedBox \\
+  2 & Presenterer resultater på nasjonalt nivå & \ref{cha:res} & \Square & \CheckedBox \\
+  3 & Har en konkret plan for gjennomføring av dekningsgradsanalyser & \ref{sec:met} & \CheckedBox & \Square \\
+  4 & Har en konkret plan for gjennomføring av analyser og løpende rapportering av resultater på sykehusnivå tilbake til deltakende enheter & \ref{sec:resfag} & \CheckedBox & \Square \\
+  5 & Har en oppdatert plan for videre utvikling av registeret & Del \ref{par:for} & \CheckedBox & \Square \\
+  & & & \\
+
+  & \textbf{Stadium 3} & & \\
+  6 & Kan redegjøre for registerets datakvalitet & \ref{sec:sik}, \ref{sec:metval}, \ref{sec:valdat} & \Square & \CheckedBox \\
+  7 & Har beregnet dekningsgrad mot uavhengig datakilde & \ref{sec:met}, \ref{sec:endek}, \ref{sec:obs} & \Square & \CheckedBox \\
+  8 & Registrerende enheter kan få utlevert egne aggregerte og nasjonale resultater & \ref{sec:resfag} & \Square & \CheckedBox \\
+  9 & Presenterer deltakende enheters etterlevelse av de viktigste nasjonale retningslinjer der disse finnes & \ref{sec:retbru} & \Square & \CheckedBox \\
+  10 & Har identifisert kliniske forbedringsområder basert på analyser fra registeret & \ref{sec:ide} & \CheckedBox & \Square \\
+  11 & Brukes til klinisk kvalitetsforbedringsarbeid & \ref{sec:brures}, \ref{sec:evakva} & \CheckedBox & \Square \\
+  12 & Resultater anvendes vitenskapelig & \ref{sec:vitarb} & \Square & \CheckedBox \\
+  13 & Presenterer resultater for PROM/PREM & \ref{sec:pasutk} & \Square & \CheckedBox \\
+  14 & Har en oppdatert plan for videre utvikling av registeret & Del \ref{par:for} & \CheckedBox & \Square \\
+  & & & \\
+
+  & \textbf{Stadium 4} & & \\
+  15 & Kan dokumentere registerets datakvalitet gjennom valideringsanalyser & \ref{sec:valdat} & \Square & \CheckedBox \\
+  16 & Presenterer oppdatert dekningsgradsanalyse hvert 2. år & \ref{sec:met}, \ref{sec:endek}, \ref{sec:obs} & \Square & \CheckedBox \\
+  17 & Har dekningsgrad over 80\% & \ref{sec:obs} & \CheckedBox & \Square \\
+  18 & Registrerende enheter har løpende (online) tilgang til oppdaterte egne og nasjonale resultater & \ref{sec:resfag}, \ref{sec:off} & \Square & \CheckedBox \\
+  19 & Presentere resultater på sosial ulikhet i helse & \ref{sec:sosdem} & \Square & \CheckedBox \\
+  20 & Resultater fra registeret er tilpasset og tilgjengelig for pasienter & \ref{sec:respas} & \Square & \CheckedBox \\
+  21 & Kunne dokumentere at registeret har ført til kvalitetsforbedring/endret klinisk praksis & \ref{sec:evakva} & \Square & \CheckedBox \\
+  \label{tab:sta} 	 
+\end{longtable}
+
+
+\listoffigures
+\listoftables
+
+
+\end{document}

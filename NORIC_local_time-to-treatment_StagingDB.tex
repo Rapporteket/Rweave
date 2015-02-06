@@ -1,0 +1,3455 @@
+\documentclass[a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[absolute,overlay]{textpos}
+\usepackage{xspace}
+\usepackage{booktabs}
+\usepackage{rotating}
+\usepackage{booklet}               % printing A5 landscape on folded A4 pdf
+\usepackage{array}                 % table formatting with array
+\usepackage{longtable}             % tables longer then one page
+\usepackage{caption}               % better captions
+\usepackage{makeidx}               % indexing the document
+\usepackage{Sweave}
+
+\pagestyle {headings}
+\graphicspath {{img/}}
+
+\makeindex
+
+
+\begin{document}
+
+\title{}
+\author{}
+\date{}
+
+\maketitle
+
+\tableofcontents
+
+
+\title{NORIC Bergen \\Time to treatment}\date{ Fri Jan 23 14:53:34 2015 }
+
+
+
+
+\paragraph{Define} auxillary functions:
+\begin{itemize}
+  \item{``describe'' to summarize the distribution of time differences (between groups of patients) in a readable table format.}
+  \item{``TimeGAM'' to plot the anual variation of time spans by month of the year.}
+\end{itemize}
+
+\begin{Schunk}
+\begin{Sinput}
+> describe <- function(X){
++     DTAB <- c(
++         as.character(sum(!is.na(X))) ,
++         sum(is.na(X)) ,
++         length(na.exclude(unique(X))) ,
++         round(x = mean( X , na.rm = TRUE ) ,
++               digits = 1 ) ,
++         min( X , na.rm = TRUE ) ,
++         max( X , na.rm = TRUE ) ,
++         round(
++               quantile( X ,na.rm = TRUE , probs = .025 ) ,
++               digits = 1) ,
++         round(
++               quantile( X ,na.rm = TRUE , probs = .05 ) ,
++               digits = 1) ,
++         round(
++               quantile( X , na.rm = TRUE , probs = .10 ) ,
++               digits = 1) ,
++         round(
++               quantile( X , na.rm = TRUE , probs = .25 ) ,
++               digits = 1) ,
++         round(
++               quantile( X , na.rm = TRUE , probs = .50 ) ,
++               digits = 1) ,
++         round(
++               quantile( X , na.rm = TRUE , probs = .75 ) ,
++               digits = 1) ,
++         round(
++               quantile( X , na.rm = TRUE , probs = .90 ) ,
++               digits = 1) ,
++         round(
++               quantile( X , na.rm = TRUE , probs = .95 ) ,
++               digits = 1) , 
++         round(
++               quantile( X , na.rm = TRUE , probs = .975 ) ,
++               digits = 1))
++     attr( DTAB , "names") <- c("n",
++                                "missing",
++                                "unique",
++                                "mean",
++                                "minimum",
++                                "maximum",
++                                ".025",
++                                ".05",
++                                ".10",
++                                ".25",
++                                ".50",
++                                ".75",
++                                ".90",
++                                ".95",
++                                ".975")
++     return(DTAB)}
+> TimeGAM <- function(
++     x ,
++     data = Subacute ,
++     ymax = 14 ,
++     lambda = 0.8 ) {
++ 
++     DAT <- na.exclude(
++         data.frame(
++             Days = data[,paste(x)] ,
++             Month = as.numeric(data$Month) ))
++ 
++     NTAB <- as.numeric(
++         table(
++             as.numeric(DAT$Month)))
++ 
++     op <- par( las = 1 , mar = c( 5 , 4 , 4, 2) + 0.1 )
++ 
++     plot(
++         Days ~ jitter(Month) ,
++         data = DAT ,
++         ylim = c(-1 , ymax) ,
++         pch = 16 ,
++         bty = "n" ,
++         axes = FALSE ,
++         col = "#1a1a1a11" ,
++         main = "" ,
++         xlab = "Month" ,
++         ylab = "Days" )
++     
++     axis(side = 1 ,
++          at = 1:12)
++ 
++     axis(side = 2 ,
++          at = 0:ymax)
++ 
++     text(x = 1:12 ,
++          y = rep(x = -0.5 , times = 12) ,
++          labels = NTAB)
++     
++     text(x = 0 ,
++          y = -0.5 ,
++          labels = "N")
++         
++     abline(h = 0:15 ,
++            col = "#1a1a1a11" ,
++            lty = 2)
++     
++ plot( 
++     rqss(
++         Days ~ qss( Month , lambda = lambda ) ,
++         tau = 0.25 ,
++         data = DAT ) ,
++     rug = FALSE ,
++     add = TRUE )
++ 
++ plot( 
++     rqss(
++         Days ~ qss( Month , lambda = lambda ) ,
++         tau = 0.50 ,
++         data = DAT ) ,
++     rug = FALSE ,
++     add = TRUE )
++ 
++ plot( 
++     rqss(
++         Days ~ qss( Month , lambda = lambda ) ,
++         tau = 0.75 ,
++         data = DAT ) ,
++     rug = FALSE ,
++     add = TRUE )
++ 
++ par(op)}
+> 
+\end{Sinput}
+\end{Schunk}
+
+
+\paragraph{R Session Info - Analytic Software Versions }
+\begin{Schunk}
+\begin{Sinput}
+> toLatex(sessionInfo(), locale = FALSE)
+\end{Sinput}
+\begin{itemize}\raggedright
+  \item R version 3.1.2 (2014-10-31), \verb|x86_64-pc-linux-gnu|
+  \item Base packages: base, datasets, graphics, grDevices, methods,
+    stats, utils
+  \item Other packages: car~2.0-22, DBI~0.3.1, ggplot2~1.0.0,
+    Matrix~1.1-4, MatrixModels~0.3-1.1, quantreg~5.05,
+    RColorBrewer~1.0-5, RMySQL~0.9-3, SparseM~1.05, xtable~1.7-4,
+    yaml~2.1.13
+  \item Loaded via a namespace (and not attached): colorspace~1.2-4,
+    compiler~3.1.2, digest~0.6.4, grid~3.1.2, gtable~0.1.2,
+    labeling~0.3, lattice~0.20-29, MASS~7.3-37, munsell~0.4.2,
+    nnet~7.3-8, plyr~1.8.1, proto~0.3-10, Rcpp~0.11.3, reshape2~1.4,
+    scales~0.2.4, stringr~0.6.2, tools~3.1.2
+\end{itemize}\end{Schunk}
+
+
+
+
+
+\section{Recode Dates and Calculate Date Differences in Days}
+
+Dates are exported as character strings (like  ``Jan 24, 2014'') and have to be reformated to POSIX date format.
+
+The admission date at referring hospital variable is empty for patients directly admitted to the PCI center. Since admission to procedure time will be compared for directly/indirectly admitted patients there has to be a common admission date and date difference variable. \emph{REFERRING\_HOSP\_ADMISSIONDATE} is updated with \emph{HOSP\_ADMISSIONDATE} for those patients directly admitted.
+
+\begin{Schunk}
+\begin{Sinput}
+> dat$InnleggelsesdatoDetteSykehus <- as.Date(
++     dat$InnleggelsesdatoDetteSykehus ,
++     format = "%b %d, %Y")
+> dat$DatoInnleggelseIHenvisendeSykehus <- as.Date(
++     dat$DatoInnleggelseIHenvisendeSykehus ,
++     format = "%b %d, %Y")
+> IndexOfMissing <- which( is.na( dat$DatoInnleggelseIHenvisendeSykehus ))
+> dat$DatoInnleggelseIHenvisendeSykehus[ IndexOfMissing ] <-
++     dat$InnleggelsesdatoDetteSykehus[ IndexOfMissing ]
+> dat$AnkomstPCIDato <- as.Date(
++     dat$AnkomstPCIDato ,
++     format = "%b %d, %Y")
+> dat$ProsedyreDato <- as.Date(
++     dat$ProsedyreDato ,
++     format = "%b %d, %Y")
+> dat$Month <- factor( format( dat$ProsedyreDato , "%y-%m") )
+> dat$SymptomDato <- as.Date(
++     dat$SymptomDato , 
++     format = "%b %d, %Y")
+> dat$FodselsDato <- as.Date(
++     dat$FodselsDato ,
++     format = "%b %d, %Y")
+> dat$DatoForApningKar <- as.Date(
++     dat$DatoForApningKar ,
++     format = "%b %d, %Y")
+\end{Sinput}
+\end{Schunk}
+
+
+
+Calculate the date differences in days. These are the main endpoints for the subsequent analysis. 
+
+\begin{Schunk}
+\begin{Sinput}
+> dat$DaysFromSymptomToProcedure <- as.numeric(
++     dat$ProsedyreDato - dat$SymptomDato )
+> dat$DaysFromSymptomToPCIcenterAdmission <- as.numeric(
++     dat$InnleggelsesdatoDetteSykehus - dat$SymptomDato )
+> dat$DaysFromSymptomToIndexAdmission <- as.numeric(
++     dat$DatoInnleggelseIHenvisendeSykehus - dat$SymptomDato )
+> dat$DaysFromIndexAdmissionToProcedure <- as.numeric(
++     dat$ProsedyreDato - dat$DatoInnleggelseIHenvisendeSykehus )
+> dat$DaysFromPCIcenterAdmissionToProcedure <- as.numeric(
++     dat$ProsedyreDato - dat$InnleggelsesdatoDetteSykehus )
+\end{Sinput}
+\end{Schunk}
+
+
+
+\section{Create Factor Variables for Subgroup Analysis}
+The patients age at procedure has to be calculated. Then grouping factors for age, and left ventricular funtion are created. Note that the variable for left ventricular function should be LEFT\_VENTRICULAR\_FUNCTION in the initialcare table according to the XML variable list, but does not exist. As a replacement ``Known deficiency in left ventricular function'' is used. Note also, that terminology of this variable in the database is not correct (``HISTORY\_OF\_CHF'').
+
+\begin{Schunk}
+\begin{Sinput}
+> dat$Age <- as.numeric(
++     dat$ProsedyreDato - dat$FodselsDato) / 365
+> dat$AgeGroup3 <- cut(x = dat$Age,
++                     breaks = c(0,65,75,200),
++                     right = FALSE,
++                     labels = c("<65","65-74","75+"))
+> dat$AgeGroup6 <- cut(x = dat$Age ,
++                      breaks = c(0,50,60,70,80,85,100) ,
++                      right = FALSE,
++                      labels = c("<50","50-59","60-69","70-79","80-84","85+"))
+> dat$EFgroup <- recode(var = dat$KjentNedsattVenstVentr ,
++                       recodes = "
++ ''=NA;
++ 'Ja, Lett nedsatt (40-49%)'='30-49';
++ 'Ja, men ukjent grad'=NA;
++ 'Ja, Moderat nedsatt (30-39%)'='30-49';
++ 'Kraftig nedsatt (<30%)'='<30';
++ 'Nei'='50+';
++ 'Ukjent'=NA;
++ ")
+> dat$EFgroup <- addNA(
++     factor(x = dat$EFgroup ,
++            levels = c(
++                '<30',
++                '30-49',
++                '50+')))
+> dat$AdmissionType <- factor( dat$OverflyttetFraSykehus=="" , labels = c("Directly","Referred"))
+> 
+\end{Sinput}
+\end{Schunk}
+
+
+
+\section{Quality Check}
+Before proceeding to analysis check the data for false registrations which result in gross outliers. Obvious errors are negative or unusully long time differences from symptom onset to procedure. These criteria have been used to identify and correct the following false registrations. The crude distribution of the time span variables in the total data set are shown in table \ref{table:TimeSpanQuantiles}
+
+\begin{Schunk}
+\begin{Sinput}
+> print(
++     xtable(
++         data.frame(
++             SymptomToProcedure = describe(
++                 dat$DaysFromSymptomToProcedure) ,
++             SymptomToPCIcenter = describe(
++                 dat$DaysFromSymptomToPCIcenterAdmission) ,
++             SymptomToAdmission = describe(
++                 dat$DaysFromSymptomToIndexAdmission) ,
++             AdmissionToProcedure = describe(
++                 dat$DaysFromIndexAdmissionToProcedure) ,
++             PCIcenterToProcedure = describe(
++                 dat$DaysFromPCIcenterAdmissionToProcedure)) ,
++         label = "table:TimeSpanQuantiles" ,
++         caption = "Quantiles of All Time Span Endpoint Variables in the Total Data") ,
++     booktabs = TRUE ,
++     rotate.colnames = TRUE)
+\end{Sinput}
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:34 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlllll}
+  \toprule
+ & \begin{sideways} SymptomToProcedure \end{sideways} & \begin{sideways} SymptomToPCIcenter \end{sideways} & \begin{sideways} SymptomToAdmission \end{sideways} & \begin{sideways} AdmissionToProcedure \end{sideways} & \begin{sideways} PCIcenterToProcedure \end{sideways} \\ 
+  \midrule
+n & 2431 & 1600 & 1716 & 3005 & 2869 \\ 
+  missing & 4194 & 5025 & 4909 & 3620 & 3756 \\ 
+  unique & 54 & 59 & 51 & 55 & 35 \\ 
+  mean & 121.7 & 157.2 & 102.6 & 28.5 & 2.1 \\ 
+  minimum & -30 & -31 & -35432 & -32 & -90 \\ 
+  maximum & 36163 & 36161 & 36161 & 35432 & 40 \\ 
+  .025 & 0 & 0 & -2 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 & 1 & 0 \\ 
+  .25 & 1 & 0 & 0 & 2 & 0 \\ 
+  .50 & 3 & 2 & 0 & 4 & 1 \\ 
+  .75 & 6 & 5 & 0 & 6 & 3 \\ 
+  .90 & 9 & 9 & 2 & 10 & 6 \\ 
+  .95 & 13 & 12 & 3.2 & 13 & 8 \\ 
+  .975 & 19 & 19 & 7 & 18 & 11 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Quantiles of All Time Span Endpoint Variables in the Total Data} 
+\label{table:TimeSpanQuantiles}
+\end{table}\end{Schunk}
+
+
+
+First list registrations with negative time differences from symptom onset (meaning treatment before symptom)
+\begin{Schunk}
+\begin{Sinput}
+> dat[
++     which( dat$DaysFromSymptomToProcedure < 0 ) ,
++     c(
++         "ForlopsID",
++         "PasientRegDato",
++         "InnleggelsesdatoDetteSykehus",
++         "DatoInnleggelseIHenvisendeSykehus",
++         "SymptomDato",
++         "ProsedyreDato") ]
+\end{Sinput}
+\begin{Soutput}
+     ForlopsID PasientRegDato InnleggelsesdatoDetteSykehus
+744        819   Feb 26, 2013                   2013-03-04
+1846      2771   Aug 17, 2013                   2013-07-31
+1917      3106   Aug 21, 2013                   2013-08-21
+     DatoInnleggelseIHenvisendeSykehus SymptomDato ProsedyreDato
+744                         2013-02-26  2013-03-26    2013-03-04
+1846                        2013-07-31  2013-08-31    2013-08-07
+1917                        2013-08-21  2013-09-21    2013-08-22
+\end{Soutput}
+\end{Schunk}
+
+
+Previous checks have shown that registrations with more then 100 days from symtpom to procedure are false.
+\begin{Schunk}
+\begin{Sinput}
+> dat[
++     which( dat$DaysFromSymptomToProcedure > 100 ) ,
++     c(
++         "ForlopsID",
++         "PasientRegDato",
++         "InnleggelsesdatoDetteSykehus",
++         "DatoInnleggelseIHenvisendeSykehus",
++         "SymptomDato",
++         "ProsedyreDato") ]
+\end{Sinput}
+\begin{Soutput}
+     ForlopsID PasientRegDato InnleggelsesdatoDetteSykehus
+1828      2753    Aug 3, 2013                   2013-08-03
+2395      4110    Jul 1, 2013                         <NA>
+3604      5956   Feb 15, 2014                         <NA>
+4471      7145   Apr 30, 2014                   2014-04-30
+4622      7365   May 19, 2014                   2014-05-18
+4832      7676   Jun 11, 2014                   2014-06-11
+5201      8514   Jul 24, 2014                   2014-07-24
+5441      8776   Aug 22, 2014                   2014-08-22
+5471      8823   Aug 28, 2014                   2014-08-27
+5665      9073   Sep 15, 2014                   2014-09-15
+5796      9220   Sep 27, 2014                   2014-09-27
+5858      9284    Oct 3, 2014                   2014-10-03
+5925      9400   Oct 12, 2014                   2014-10-12
+     DatoInnleggelseIHenvisendeSykehus SymptomDato ProsedyreDato
+1828                        2013-08-03  2003-08-13    2013-08-05
+2395                              <NA>  2001-07-13    2013-07-04
+3604                              <NA>  1915-02-14    2014-02-15
+4471                        2014-04-30  1930-04-14    2014-05-05
+4622                        2014-05-18  1919-05-18    2014-05-19
+4832                        2014-06-11  2006-06-14    2014-06-12
+5201                        2014-07-24  1924-07-14    2014-07-25
+5441                        2014-08-22  1922-08-14    2014-08-25
+5471                        2014-08-19  1919-08-14    2014-08-27
+5665                        2014-09-15  1915-09-14    2014-09-17
+5796                        2014-09-27  1927-09-14    2014-10-01
+5858                        2014-10-03  2003-10-14    2014-10-07
+5925                        2014-10-12  2012-10-14    2014-10-15
+\end{Soutput}
+\end{Schunk}
+
+
+
+
+False registrations are simply excluded in the following analysis, since it takes considerable time to correct them and the rank statistics calculated for the time variables are not effected by small amounts of outliers (which on top are randomly distributed).
+
+\begin{Schunk}
+\begin{Sinput}
+> dat$DaysFromSymptomToProcedure[ which(
++     dat$DaysFromSymptomToProcedure < 0 )] <- NA
+> dat$DaysFromSymptomToPCIcenterAdmission[ which(
++     dat$DaysFromSymptomToPCIcenterAdmission < 0 )] <- NA
+> dat$DaysFromSymptomToIndexAdmission[ which(
++     dat$DaysFromSymptomToIndexAdmission < 0 )] <- NA
+> dat$DaysFromIndexAdmissionToProcedure[ which(
++     dat$DaysFromIndexAdmissionToProcedure < 0 )] <- NA
+> dat$DaysFromPCIcenterAdmissionToProcedure[ which(
++     dat$DaysFromPCIcenterAdmissionToProcedure < 0 )] <- NA
+> dat$DaysFromSymptomToProcedure[ which(
++     dat$DaysFromSymptomToProcedure > 100 )] <- NA
+> dat$DaysFromSymptomToPCIcenterAdmission[ which(
++     dat$DaysFromSymptomToPCIcenterAdmission > 100 )] <- NA
+> dat$DaysFromSymptomToIndexAdmission[ which(
++     dat$DaysFromSymptomToIndexAdmission > 100 )] <- NA
+> dat$DaysFromIndexAdmissionToProcedure[ which(
++     dat$DaysFromIndexAdmissionToProcedure > 100 )] <- NA
+> dat$DaysFromPCIcenterAdmissionToProcedure[ which(
++     dat$DaysFromPCIcenterAdmissionToProcedure > 100 )] <- NA
+\end{Sinput}
+\end{Schunk}
+
+
+\section{Select Study Population}
+Select the target populations registered 01/01-2014 -- 12/31-2014 from the main dataset. The following subsets are selected:
+\begin{itemize}
+\item{all sub-acute patients}  
+\item{sub-acute NSTEMI patients}  
+\item{sub-acute UAP patients}  
+\item{all NSTEMI patients both sub-acute and acute}  
+  \item{subacute NSTEMI and UAP patients 
+
+Note that the indication for admission has to be recategorized since this variable (\emph{Indikasjon}) has only two levels (NSTEMI,UAP) in the final dataset.
+
+\begin{Schunk}
+\begin{Sinput}
+> Subacute <- subset(x = dat,
++                        subset = (
++                            (format(dat$ProsedyreDato , "%Y") == "2014") &
++                            (Indikasjon %in% c("UAP","NSTEMI")) &
++                            (HendelsesType  == "Subakutt")))
+> Subacute$Indikasjon <- factor(Subacute$Indikasjon)
+> SubacuteNSTEMI <- subset(x = dat,
++                          subset = (
++                              (format(dat$ProsedyreDato , "%Y") == "2014") &
++                              (Indikasjon == "NSTEMI") &
++                              (HendelsesType  == "Subakutt")))
+> SubacuteUAP <- subset(x = dat,
++                       subset = (
++                           (format(dat$ProsedyreDato , "%Y") == "2014") &
++                           (Indikasjon == "UAP") &
++                           (HendelsesType  == "Subakutt")))
+> NSTEMI <- subset(x = dat,
++                  subset = (
++                      (format(dat$ProsedyreDato , "%Y") == "2014") &
++                      (Indikasjon == "NSTEMI")))
+\end{Sinput}
+\end{Schunk}
+
+
+
+\chapter{Analyses}
+
+
+
+\section{Patient Characteristics}
+The final dataset contains 1311 procedures for subacute NSTEMI/UAP patients treated in 2014 at Haukeland University Hosptial Bergen. The following paragraph will tabulate some crude numbers about the population in simple R output tables.
+
+\begin{Schunk}
+\begin{Sinput}
+> addmargins(xtabs(formula = ~ AgeGroup3 + Kjonn ,
++                  data = Subacute))
+\end{Sinput}
+\begin{Soutput}
+         Kjonn
+AgeGroup3 Kvinne Mann  Sum
+    <65      109  425  534
+    65-74    115  246  361
+    75+      143  208  351
+    Sum      367  879 1246
+\end{Soutput}
+\begin{Sinput}
+> addmargins(xtabs(formula = ~ Indikasjon + Kjonn ,
++                  data = Subacute))
+\end{Sinput}
+\begin{Soutput}
+          Kjonn
+Indikasjon Kvinne Mann  Sum
+    NSTEMI    179  430  609
+    UAP       188  449  637
+    Sum       367  879 1246
+\end{Soutput}
+\begin{Sinput}
+> addmargins(xtabs(formula = ~ AdmissionType + Kjonn ,
++                  data = Subacute))
+\end{Sinput}
+\begin{Soutput}
+             Kjonn
+AdmissionType Kvinne Mann  Sum
+     Directly    180  432  612
+     Referred    187  447  634
+     Sum         367  879 1246
+\end{Soutput}
+\end{Schunk}
+
+
+
+
+\clearpage
+\section{Date Differences in Subacute Patients}
+
+The following sections will contain crude tables and plots of the five date differences calculated before:
+\begin{enumerate}
+\item{DaysFromSymptomToProcedure}
+\item{DaysFromSymptomToPCIcenterAdmission}
+\item{DaysFromSymptomToIndexAdmission}
+\item{DaysFromIndexAdmissionToProcedure}
+\item{DaysFromPCIcenterAdmissionToProcedure}
+\end{enumerate}
+
+These time spans will be compared accross several groups of patients:
+\begin{enumerate}
+\item{UAP vs. NSTEMI}
+\item{age groups ($<65$ , $65--74$, $\geq75$)}
+\item{admission type (referred/directly to PCI center)}
+\item{Left ventricular function ($<30$ , $30-50$ , $\geq50$)}
+\end{enumerate}
+
+There are many possibilities to analyse the five endpoint variables across groups of patients. For illustrational purpose the first time span from symptom onset to precedure by indication for treatment in subacute UAP and NSTEMI patients will be analyzed and visualized more extensively as an example.
+
+
+\subsection{Introduction and Examples - Days From System Onset to Procedure for Subacute Patients by Indikasjon}
+Table \ref{Summary_Symptom_to_Procedure_by_Indikasjon} contains the basic information about the time span from system onset to procedure compared between subgroups of UAP vs NSTEMI patients. How many patients/procedures are in each group, how many registrations are missing, the minimum, maxium and mean time period and some quantiles (0.05, 0.10, \ldots). The quantiles refer to how many percent of the patients had there procedure before X days from symptom onset. The differing amount of days for the different quantiles in each group can be tested against the null hypothesis that the observed difference was accidentially and non-systematic and that the real difference is zero. The method of quantile regression is presented for this purpose. Finally there are three common methods to visualize the time distributions for each group, boxplot, violinplot and overimposed densityplots. All three are shown as an example, but for the subsequent list of all time span variables between all groups only summary table, boxplot and densityplot are shown.
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:35 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & UAP & NSTEMI \\ 
+  \midrule
+n & 141 & 565 \\ 
+  missing & 496 & 44 \\ 
+  unique & 20 & 24 \\ 
+  mean & 5.8 & 4.5 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 64 & 37 \\ 
+  .025 & 0 & 1 \\ 
+  .05 & 1 & 1 \\ 
+  .10 & 2 & 1 \\ 
+  .25 & 2 & 2 \\ 
+  .50 & 4 & 3 \\ 
+  .75 & 6 & 6 \\ 
+  .90 & 10 & 9 \\ 
+  .95 & 13 & 11 \\ 
+  .975 & 20.5 & 15 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by Indikasjon (UAP vs NSTEMI)} 
+\label{Summary_Symptom_to_Procedure_by_Indikasjon}
+\end{table}
+
+\clearpage
+\subsubsection{Quantile Regression for Differences in Time to Treatment between UAP/NSTEMI Procedures}
+It is also possible to test the quantiles for group differences by means of quantile regression. This is just a preliminary example.
+\begin{Schunk}
+\begin{Sinput}
+> summary(
++     rq(formula = DaysFromSymptomToProcedure ~ Indikasjon ,
++        tau = c(0.05,0.10,0.25,0.50,0.75,0.90,0.95) ,
++        data = Subacute ,
++        na.action = na.exclude))
+\end{Sinput}
+\begin{Soutput}
+Call: rq(formula = DaysFromSymptomToProcedure ~ Indikasjon, tau = c(0.05, 
+    0.1, 0.25, 0.5, 0.75, 0.9, 0.95), data = Subacute, na.action = na.exclude)
+
+tau: [1] 0.05
+
+Coefficients:
+              coefficients   lower bd       upper bd      
+(Intercept)     1.000000e+00   1.000000e+00   1.000000e+00
+IndikasjonUAP   0.000000e+00 -1.797693e+308   0.000000e+00
+
+Call: rq(formula = DaysFromSymptomToProcedure ~ Indikasjon, tau = c(0.05, 
+    0.1, 0.25, 0.5, 0.75, 0.9, 0.95), data = Subacute, na.action = na.exclude)
+
+tau: [1] 0.1
+
+Coefficients:
+              coefficients   lower bd       upper bd      
+(Intercept)     1.000000e+00   1.000000e+00   1.000000e+00
+IndikasjonUAP   1.000000e+00 -1.797693e+308   1.000000e+00
+
+Call: rq(formula = DaysFromSymptomToProcedure ~ Indikasjon, tau = c(0.05, 
+    0.1, 0.25, 0.5, 0.75, 0.9, 0.95), data = Subacute, na.action = na.exclude)
+
+tau: [1] 0.25
+
+Coefficients:
+              coefficients lower bd upper bd
+(Intercept)   2.00000      2.00000  2.00000 
+IndikasjonUAP 0.00000      0.00000  1.82585 
+
+Call: rq(formula = DaysFromSymptomToProcedure ~ Indikasjon, tau = c(0.05, 
+    0.1, 0.25, 0.5, 0.75, 0.9, 0.95), data = Subacute, na.action = na.exclude)
+
+tau: [1] 0.5
+
+Coefficients:
+              coefficients lower bd upper bd
+(Intercept)    3.00000      3.00000 12.07462
+IndikasjonUAP  1.00000      1.00000  9.24783
+
+Call: rq(formula = DaysFromSymptomToProcedure ~ Indikasjon, tau = c(0.05, 
+    0.1, 0.25, 0.5, 0.75, 0.9, 0.95), data = Subacute, na.action = na.exclude)
+
+tau: [1] 0.75
+
+Coefficients:
+              coefficients   lower bd       upper bd      
+(Intercept)     6.000000e+00 -1.797693e+308   6.000000e+00
+IndikasjonUAP   0.000000e+00   0.000000e+00   7.825850e+00
+
+Call: rq(formula = DaysFromSymptomToProcedure ~ Indikasjon, tau = c(0.05, 
+    0.1, 0.25, 0.5, 0.75, 0.9, 0.95), data = Subacute, na.action = na.exclude)
+
+tau: [1] 0.9
+
+Coefficients:
+              coefficients   lower bd       upper bd      
+(Intercept)     9.000000e+00 -1.797693e+308   1.324477e+01
+IndikasjonUAP   1.000000e+00  -2.348700e+00   5.748700e+00
+
+Call: rq(formula = DaysFromSymptomToProcedure ~ Indikasjon, tau = c(0.05, 
+    0.1, 0.25, 0.5, 0.75, 0.9, 0.95), data = Subacute, na.action = na.exclude)
+
+tau: [1] 0.95
+
+Coefficients:
+              coefficients lower bd upper bd
+(Intercept)   11.00000     10.21762 23.82379
+IndikasjonUAP  2.00000     -1.86309  9.76309
+\end{Soutput}
+\end{Schunk}
+
+The crude R quantile regression output is quite lengthy and needs to be explained: The ``tau:'' values correspond with the quantiles of the summary table \ref{Summary_Symptom_to_Procedure_by_Indikasjon}. There are no significant differences, execpt the 75-percentile, which is significantly shorter for NSTEMI patients compared to UAP patients (7 vs 8 days respectively, p = 0.011). This means that for 75\% of patients it takes no longer then 7 days after onset of NSTEMI symptoms to get to angiography. Significantly 1 day less then for UAP patients.
+
+
+\clearpage
+\subsubsection{Graphical Representations}
+Now some graphical presentations of the time differences by indication groups. Some of the figures are redundant: boxplot, violinplot and overlapping densityplot (with transparence) are methods to show the distribution of the time span across subgroups of patients --- they contain the same information and which one to choose finally is a matter of personal prevalence. A GAM quantile plot (figure \ref{GAM: Date Differences from Symptom Onset to Procedure over Time}) shows how delays in treatment varies over the time of year.
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Indikasjon (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_Procedure_by_Indikasjon.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Indikasjon (Violinplot)}
+  \label{Violin: Date Differences from Symptom Onset to Procedure by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Violinplot_Symptom_Onset_to_Procedure_by_Indikasjon.pdf}\end{figure}
+
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Indikasjon (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_Procedure_by_Indikasjon.pdf}\end{figure}
+
+
+
+\begin{figure}
+  \centering
+  \caption{Quantiles of Date Differences from Symptom Onset to Procedure over Time (GAM-plot)\\
+  The lower through upper lines denote the 25th, 50th and 75th percentile respectively}
+  \label{GAM: Date Differences from Symptom Onset to Procedure over Time}
+\includegraphics[width=0.95\textwidth]{img/GAM_Symptom_Onset_to_Procedure_over_time.pdf}\end{figure}
+
+
+
+The following sections contain a list of summary tables and figures for the discussed endpoints by the mentioned groups of explanatory factors. The captions of figures and tables should speak for themselves.
+
+
+
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute Patients by Month of Procedure}
+
+\begin{figure}
+  \centering
+  \caption{Quantiles of Date Differences from Index Admission to Procedure over Time for Subacute UAP/NSTEMI patients\\
+  The lower through upper lines denote the 25th, 50th and 75th percentile respectively}
+  \label{GAM: Date Differences from Index Admission to Procedure over Time UAP+NSTEMI}
+\includegraphics[width=0.95\textwidth]{img/GAM_index_admission_to_Procedure_over_time_UAP_NSTEMI.pdf}\end{figure}
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute Patients by Indikasjon}
+
+% DaysFromSymptomToProcedure
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:35 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & UAP & NSTEMI \\ 
+  \midrule
+n & 141 & 565 \\ 
+  missing & 496 & 44 \\ 
+  unique & 20 & 24 \\ 
+  mean & 5.8 & 4.5 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 64 & 37 \\ 
+  .025 & 0 & 1 \\ 
+  .05 & 1 & 1 \\ 
+  .10 & 2 & 1 \\ 
+  .25 & 2 & 2 \\ 
+  .50 & 4 & 3 \\ 
+  .75 & 6 & 6 \\ 
+  .90 & 10 & 9 \\ 
+  .95 & 13 & 11 \\ 
+  .975 & 20.5 & 15 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by Indikasjon} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Indikasjon (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_Procedure_by_Indikasjon.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Indikasjon (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_Procedure_by_Indikasjon.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:35 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & UAP & NSTEMI \\ 
+  \midrule
+n & 141 & 505 \\ 
+  missing & 496 & 104 \\ 
+  unique & 18 & 21 \\ 
+  mean & 4.1 & 3.2 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 61 & 31 \\ 
+  .025 & 0 & 0 \\ 
+  .05 & 0 & 0 \\ 
+  .10 & 0 & 0 \\ 
+  .25 & 0 & 0 \\ 
+  .50 & 2 & 2 \\ 
+  .75 & 6 & 5 \\ 
+  .90 & 8 & 7 \\ 
+  .95 & 12 & 10 \\ 
+  .975 & 20 & 12.4 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to PCIcenterAdmission by Indikasjon} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Indikasjon (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Indikasjon.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Indikasjon (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Indikasjon.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:35 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & UAP & NSTEMI \\ 
+  \midrule
+n & 141 & 496 \\ 
+  missing & 496 & 113 \\ 
+  unique & 8 & 13 \\ 
+  mean & 0.8 & 0.6 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 61 & 15 \\ 
+  .025 & 0 & 0 \\ 
+  .05 & 0 & 0 \\ 
+  .10 & 0 & 0 \\ 
+  .25 & 0 & 0 \\ 
+  .50 & 0 & 0 \\ 
+  .75 & 0 & 1 \\ 
+  .90 & 1 & 2 \\ 
+  .95 & 2 & 3 \\ 
+  .975 & 3.5 & 5 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to IndexAdmission by Indikasjon} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Indikasjon (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Indikasjon.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Indikasjon (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Indikasjon.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:36 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & UAP & NSTEMI \\ 
+  \midrule
+n & 556 & 536 \\ 
+  missing & 81 & 73 \\ 
+  unique & 22 & 24 \\ 
+  mean & 4.6 & 4 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 58 & 65 \\ 
+  .025 & 0 & 0 \\ 
+  .05 & 0 & 0 \\ 
+  .10 & 1 & 1 \\ 
+  .25 & 2 & 2 \\ 
+  .50 & 4 & 3 \\ 
+  .75 & 6 & 5 \\ 
+  .90 & 8 & 7 \\ 
+  .95 & 10 & 10 \\ 
+  .975 & 13 & 12.6 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Indikasjon} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Indikasjon (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Index_Admission_to_Procedure_by_Indikasjon.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Indikasjon (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Index_Admission_to_Procedure_by_Indikasjon.pdf}\end{figure}
+
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:36 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & UAP & NSTEMI \\ 
+  \midrule
+n & 556 & 537 \\ 
+  missing & 81 & 72 \\ 
+  unique & 16 & 13 \\ 
+  mean & 1.8 & 1.3 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 35 & 38 \\ 
+  .025 & 0 & 0 \\ 
+  .05 & 0 & 0 \\ 
+  .10 & 0 & 0 \\ 
+  .25 & 0 & 0 \\ 
+  .50 & 1 & 0 \\ 
+  .75 & 3 & 2 \\ 
+  .90 & 5 & 4 \\ 
+  .95 & 6 & 6 \\ 
+  .975 & 8 & 8 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from PCI Center Admission to Procedure by Indikasjon} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Indikasjon (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Time_from_PCI_Center_Admission_to_Procedure_by_Indikasjon.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Indikasjon (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Indikasjon}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_PCI_Center_to_Procedure_by_Indikasjon.pdf}\end{figure}
+
+
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute Patients by Age Group}
+
+% DaysFromSymptomToProcedure
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:36 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rllllll}
+  \toprule
+ & AgeLower50 & Age50to59 & Age60to69 & Age70to79 & Age80to84 & Age85plus \\ 
+  \midrule
+n & 60 & 127 & 201 & 203 & 70 & 45 \\ 
+  missing & 64 & 92 & 179 & 137 & 49 & 19 \\ 
+  unique & 11 & 16 & 19 & 21 & 14 & 14 \\ 
+  mean & 3.4 & 4.2 & 4.7 & 5.3 & 4.9 & 5.4 \\ 
+  minimum & 0 & 0 & 0 & 0 & 0 & 0 \\ 
+  maximum & 13 & 21 & 64 & 50 & 19 & 37 \\ 
+  .025 & 0.5 & 1 & 1 & 1 & 1.7 & 0.1 \\ 
+  .05 & 1 & 1 & 1 & 1 & 2 & 1 \\ 
+  .10 & 1 & 1 & 1 & 1 & 2 & 1 \\ 
+  .25 & 2 & 2 & 2 & 2 & 3 & 2 \\ 
+  .50 & 2.5 & 3 & 3 & 4 & 4 & 3 \\ 
+  .75 & 5 & 5 & 6 & 7 & 6 & 6 \\ 
+  .90 & 6.2 & 8.4 & 9 & 10.8 & 8 & 11 \\ 
+  .95 & 9 & 10 & 11 & 12 & 10 & 16 \\ 
+  .975 & 10 & 12.7 & 14 & 18.9 & 12.8 & 20.6 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by Age Group} 
+\end{table}
+
+
+% DaysFromSymptomToProcedure
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:36 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 284 & 201 & 221 \\ 
+  missing & 250 & 160 & 130 \\ 
+  unique & 18 & 18 & 22 \\ 
+  mean & 4.2 & 4.7 & 5.5 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 64 & 36 & 50 \\ 
+  .025 & 0.1 & 1 & 1 \\ 
+  .05 & 1 & 1 & 1 \\ 
+  .10 & 1 & 1 & 1 \\ 
+  .25 & 2 & 2 & 2 \\ 
+  .50 & 3 & 4 & 4 \\ 
+  .75 & 5 & 6 & 6 \\ 
+  .90 & 8 & 9 & 11 \\ 
+  .95 & 10 & 11 & 16 \\ 
+  .975 & 12.9 & 12 & 20.5 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_Procedure_by_Age_Group.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_Procedure_by_Age_Group.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:36 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 268 & 177 & 201 \\ 
+  missing & 266 & 184 & 150 \\ 
+  unique & 16 & 16 & 20 \\ 
+  mean & 2.8 & 3.6 & 3.8 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 61 & 31 & 50 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 2 & 3 & 2 \\ 
+  .75 & 4 & 5 & 5 \\ 
+  .90 & 6 & 7.4 & 8 \\ 
+  .95 & 8.6 & 11 & 15 \\ 
+  .975 & 11 & 12 & 18 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to PCIcenterAdmission by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Age_Group.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Age_Group.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:36 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 264 & 175 & 198 \\ 
+  missing & 270 & 186 & 153 \\ 
+  unique & 11 & 11 & 8 \\ 
+  mean & 0.8 & 0.7 & 0.5 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 61 & 13 & 15 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 0 & 0 & 0 \\ 
+  .75 & 1 & 1 & 0 \\ 
+  .90 & 1 & 2 & 1 \\ 
+  .95 & 3 & 3 & 2 \\ 
+  .975 & 5 & 7 & 3.1 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to IndexAdmission by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Age_Group.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Age_Group.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:37 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rllllll}
+  \toprule
+ & AgeLower50 & Age50to59 & Age60to69 & Age70to79 & Age80to84 & Age85plus \\ 
+  \midrule
+n & 113 & 197 & 320 & 302 & 98 & 62 \\ 
+  missing & 11 & 22 & 60 & 38 & 21 & 2 \\ 
+  unique & 12 & 17 & 22 & 19 & 15 & 16 \\ 
+  mean & 3.5 & 3.9 & 4.5 & 4.5 & 4.6 & 5.1 \\ 
+  minimum & 0 & 0 & 0 & 0 & 0 & 0 \\ 
+  maximum & 12 & 65 & 58 & 50 & 19 & 35 \\ 
+  .025 & 0 & 0 & 0 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 1 & 0 & 1 & 0 \\ 
+  .10 & 1 & 1 & 1 & 1 & 1 & 1 \\ 
+  .25 & 2 & 2 & 2 & 2 & 3 & 2 \\ 
+  .50 & 3 & 3 & 3 & 4 & 4 & 4 \\ 
+  .75 & 5 & 4 & 5 & 6 & 6 & 6 \\ 
+  .90 & 7 & 7 & 8 & 8 & 8.3 & 10.9 \\ 
+  .95 & 7.4 & 10 & 10.1 & 11 & 10 & 11.9 \\ 
+  .975 & 8.2 & 12 & 14.1 & 13 & 13.7 & 18.9 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Age Group} 
+\end{table}
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:37 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 473 & 310 & 309 \\ 
+  missing & 61 & 51 & 42 \\ 
+  unique & 18 & 22 & 22 \\ 
+  mean & 3.8 & 4.7 & 4.7 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 65 & 58 & 50 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 1 & 0 \\ 
+  .10 & 1 & 1 & 1 \\ 
+  .25 & 2 & 2 & 2 \\ 
+  .50 & 3 & 4 & 4 \\ 
+  .75 & 5 & 6 & 6 \\ 
+  .90 & 7 & 8 & 9 \\ 
+  .95 & 9 & 11.6 & 11 \\ 
+  .975 & 11 & 14.8 & 17 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Index_Admission_to_Procedure_by_Age_Group.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Index_Admission_to_Procedure_by_Age_Group.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:37 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 473 & 310 & 310 \\ 
+  missing & 61 & 51 & 41 \\ 
+  unique & 12 & 16 & 12 \\ 
+  mean & 1.5 & 1.8 & 1.4 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 35 & 38 & 11 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 1 & 0 & 1 \\ 
+  .75 & 2 & 2 & 2 \\ 
+  .90 & 4 & 5 & 4 \\ 
+  .95 & 6 & 7 & 5 \\ 
+  .975 & 7 & 9.3 & 7 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from PCI Center Admission to Procedure by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_PCI_Center_Admission_to_Procedure_by_Age_Group.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_PCI_Center_Admission_to_Procedure_by_Age_Group.pdf}\end{figure}
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute Patients by Admission Type (directly/referred)}
+
+
+\begin{figure}
+  \centering
+  \caption{Quantiles of Date Differences from Index Admission to Procedure over Time by Admission Type for Subacute UAP/NSTEMI patients\\
+  The lower through upper lines denote the 25th, 50th and 75th percentile respectively}
+  \label{GAM: Date Differences from Index Admission to Procedure over Time by Admission Type UAP+NSTEMI}
+\includegraphics[width=0.95\textwidth]{img/GAM_index_admission_to_Procedure_over_time_by_admission_type_UAP_NSTEMI.pdf}\end{figure}
+
+
+
+% DaysFromSymptomToProcedure
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:37 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 315 & 391 \\ 
+  missing & 319 & 221 \\ 
+  unique & 20 & 25 \\ 
+  mean & 4 & 5.4 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 64 & 50 \\ 
+  .025 & 0 & 1 \\ 
+  .05 & 1 & 1 \\ 
+  .10 & 1 & 2 \\ 
+  .25 & 2 & 3 \\ 
+  .50 & 3 & 4 \\ 
+  .75 & 5 & 6 \\ 
+  .90 & 8 & 10 \\ 
+  .95 & 10 & 12.5 \\ 
+  .975 & 12 & 19 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_Procedure_by_Admission_Type.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_Procedure_by_Admission_Type.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:37 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 255 & 391 \\ 
+  missing & 379 & 221 \\ 
+  unique & 11 & 23 \\ 
+  mean & 0.8 & 5 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 61 & 50 \\ 
+  .025 & 0 & 0 \\ 
+  .05 & 0 & 1 \\ 
+  .10 & 0 & 1 \\ 
+  .25 & 0 & 2 \\ 
+  .50 & 0 & 4 \\ 
+  .75 & 1 & 6 \\ 
+  .90 & 2 & 9 \\ 
+  .95 & 3 & 12 \\ 
+  .975 & 5.7 & 17.2 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to PCIcenterAdmission by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:38 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 255 & 382 \\ 
+  missing & 379 & 230 \\ 
+  unique & 11 & 11 \\ 
+  mean & 0.8 & 0.6 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 61 & 13 \\ 
+  .025 & 0 & 0 \\ 
+  .05 & 0 & 0 \\ 
+  .10 & 0 & 0 \\ 
+  .25 & 0 & 0 \\ 
+  .50 & 0 & 0 \\ 
+  .75 & 1 & 1 \\ 
+  .90 & 2 & 1 \\ 
+  .95 & 3 & 3 \\ 
+  .975 & 5.7 & 5 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to IndexAdmission by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:38 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 482 & 610 \\ 
+  missing & 152 & 2 \\ 
+  unique & 16 & 28 \\ 
+  mean & 3 & 5.4 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 38 & 65 \\ 
+  .025 & 0 & 1 \\ 
+  .05 & 0 & 1 \\ 
+  .10 & 0 & 2 \\ 
+  .25 & 1 & 3 \\ 
+  .50 & 2 & 4 \\ 
+  .75 & 4 & 6 \\ 
+  .90 & 6 & 9 \\ 
+  .95 & 7.9 & 12 \\ 
+  .975 & 9 & 17 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Index_Admission_to_Procedure_by_Admission_Type.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Index_Admission_to_Procedure_by_Admission_Type.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:38 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 482 & 611 \\ 
+  missing & 152 & 1 \\ 
+  unique & 16 & 12 \\ 
+  mean & 3 & 0.4 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 38 & 15 \\ 
+  .025 & 0 & 0 \\ 
+  .05 & 0 & 0 \\ 
+  .10 & 0 & 0 \\ 
+  .25 & 1 & 0 \\ 
+  .50 & 2 & 0 \\ 
+  .75 & 4 & 0 \\ 
+  .90 & 6 & 1 \\ 
+  .95 & 7.9 & 2 \\ 
+  .975 & 9 & 4 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from PCI Center Admission to Procedure by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Time_from_PCI_Center_Admission_to_Procedure_by_Admission_Type.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_PCI_Center_to_Procedure_by_Admission_Type.pdf}\end{figure}
+
+
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute NSTEMI Patients by Left Ventricular Function}
+% c("<30","30-49","50+")
+
+% DaysFromSymptomToProcedure
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:38 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 19 & 102 & 441 \\ 
+  missing & 0 & 8 & 35 \\ 
+  unique & 14 & 16 & 21 \\ 
+  mean & 8.2 & 5.4 & 4.1 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 36 & 21 & 37 \\ 
+  .025 & 0.4 & 1 & 1 \\ 
+  .05 & 0.9 & 1 & 1 \\ 
+  .10 & 1 & 1 & 1 \\ 
+  .25 & 2 & 3 & 2 \\ 
+  .50 & 4 & 4.5 & 3 \\ 
+  .75 & 10.5 & 7 & 5 \\ 
+  .90 & 19.8 & 11 & 8 \\ 
+  .95 & 31.5 & 12 & 10 \\ 
+  .975 & 33.8 & 15 & 13 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_Procedure_by_EF_group_NSTEMIonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_Procedure_by_EF_group_NSTEMIonly.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:38 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 16 & 90 & 399 \\ 
+  missing & 3 & 20 & 77 \\ 
+  unique & 10 & 14 & 19 \\ 
+  mean & 7.6 & 3.6 & 2.9 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 31 & 19 & 31 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 1.5 & 1 & 0 \\ 
+  .50 & 3 & 3 & 2 \\ 
+  .75 & 8.8 & 5 & 4 \\ 
+  .90 & 23 & 8 & 6 \\ 
+  .95 & 29.5 & 11 & 8.1 \\ 
+  .975 & 30.2 & 12 & 11 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to PCIcenterAdmission by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_EF_group_NSTEMIonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_EF_group_NSTEMIonly.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:39 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 16 & 88 & 392 \\ 
+  missing & 3 & 22 & 84 \\ 
+  unique & 5 & 9 & 12 \\ 
+  mean & 0.8 & 0.9 & 0.6 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 7 & 11 & 15 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 0 & 0 & 0 \\ 
+  .75 & 0.2 & 1 & 1 \\ 
+  .90 & 2.5 & 3 & 1 \\ 
+  .95 & 4 & 5 & 3 \\ 
+  .975 & 5.5 & 5.8 & 4.2 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to IndexAdmission by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_IndexAdmission_by_EF_group_NSTEMIonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_IndexAdmission_by_EF_group_NSTEMIonly.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:39 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 17 & 95 & 424 \\ 
+  missing & 2 & 15 & 52 \\ 
+  unique & 11 & 14 & 21 \\ 
+  mean & 7.6 & 4.4 & 3.8 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 33 & 19 & 65 \\ 
+  .025 & 0.4 & 0 & 0 \\ 
+  .05 & 0.8 & 0 & 0 \\ 
+  .10 & 1.6 & 1 & 1 \\ 
+  .25 & 2 & 2 & 2 \\ 
+  .50 & 3 & 4 & 3 \\ 
+  .75 & 8 & 6 & 5 \\ 
+  .90 & 22.6 & 9.6 & 7 \\ 
+  .95 & 31.4 & 10.3 & 9 \\ 
+  .975 & 32.2 & 12 & 12 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Index_Admission_to_Procedure_by_EF_group_NSTEMIonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Index_Admission_to_Procedure_by_EF_group_NSTEMIonly.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:39 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 17 & 95 & 425 \\ 
+  missing & 2 & 15 & 51 \\ 
+  unique & 5 & 11 & 12 \\ 
+  mean & 1.3 & 1.7 & 1.2 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 5 & 10 & 38 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 1 & 1 & 0 \\ 
+  .75 & 2 & 2 & 2 \\ 
+  .90 & 3 & 6 & 3 \\ 
+  .95 & 3.4 & 8 & 5 \\ 
+  .975 & 4.2 & 9 & 7 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from PCI Center Admission to Procedure by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_PCI_Center_Admission_to_Procedure_by_EF_group_NSTEMIonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_PCI_Center_Admission_to_Procedure_by_EF_group_NSTEMIonly.pdf}\end{figure}
+
+
+
+
+
+
+\clearpage
+\section{Date Differences in Subacute UAP Patients}
+
+This section repeats the figures and tables for the previous section for UAP patients only, i.e. all five endpoint time spans compared between age- and EF-groups.
+
+%% UAP only
+\subsection{Date Differences for Subacute UAP Patients by Age Group}
+
+% DaysFromSymptomToProcedure
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:39 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 70 & 40 & 31 \\ 
+  missing & 234 & 150 & 112 \\ 
+  unique & 16 & 14 & 13 \\ 
+  mean & 5.5 & 5.4 & 6.8 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 64 & 19 & 50 \\ 
+  .025 & 0.7 & 1 & 0 \\ 
+  .05 & 1 & 2 & 0.5 \\ 
+  .10 & 1 & 2 & 1 \\ 
+  .25 & 2 & 3 & 2 \\ 
+  .50 & 4 & 5 & 4 \\ 
+  .75 & 5.8 & 7 & 6.5 \\ 
+  .90 & 9.1 & 9.1 & 11 \\ 
+  .95 & 12.1 & 11 & 20.5 \\ 
+  .975 & 15.9 & 12.2 & 28.2 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_Procedure_by_Age_Group_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_Procedure_by_Age_Group_UAPonly.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:39 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 70 & 40 & 31 \\ 
+  missing & 234 & 150 & 112 \\ 
+  unique & 15 & 11 & 11 \\ 
+  mean & 3.7 & 3.9 & 5.1 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 61 & 19 & 50 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 1 & 3 & 1 \\ 
+  .75 & 5 & 6.2 & 6 \\ 
+  .90 & 8.1 & 8 & 10 \\ 
+  .95 & 10.5 & 9.1 & 20 \\ 
+  .975 & 14.9 & 12.2 & 27.5 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to PCIcenterAdmission by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Age_Group_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Age_Group_UAPonly.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:39 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 70 & 40 & 31 \\ 
+  missing & 234 & 150 & 112 \\ 
+  unique & 7 & 4 & 2 \\ 
+  mean & 1.3 & 0.6 & 0.1 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 61 & 13 & 1 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 0 & 0 & 0 \\ 
+  .75 & 0 & 1 & 0 \\ 
+  .90 & 1 & 1 & 0 \\ 
+  .95 & 2.5 & 1.1 & 0.5 \\ 
+  .975 & 5.1 & 3.2 & 1 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to IndexAdmission by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Age_Group_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Age_Group_UAPonly.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:40 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 269 & 163 & 124 \\ 
+  missing & 35 & 27 & 19 \\ 
+  unique & 17 & 19 & 17 \\ 
+  mean & 4.1 & 5.2 & 4.9 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 35 & 58 & 50 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 1 & 0 \\ 
+  .10 & 1 & 2 & 1 \\ 
+  .25 & 2 & 3 & 2 \\ 
+  .50 & 4 & 4 & 4 \\ 
+  .75 & 6 & 6 & 6 \\ 
+  .90 & 7 & 8 & 9 \\ 
+  .95 & 9 & 12 & 10.8 \\ 
+  .975 & 11 & 13.9 & 16.8 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Index_Admission_to_Procedure_by_Age_Group_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Index_Admission_to_Procedure_by_Age_Group_UAPonly.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:40 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 269 & 163 & 124 \\ 
+  missing & 35 & 27 & 19 \\ 
+  unique & 12 & 15 & 10 \\ 
+  mean & 1.8 & 2 & 1.4 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 35 & 17 & 11 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 1 & 1 & 1 \\ 
+  .75 & 3 & 3 & 2 \\ 
+  .90 & 5 & 5 & 4 \\ 
+  .95 & 6 & 7 & 5 \\ 
+  .975 & 7 & 9.9 & 6 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from PCI Center Admission to Procedure by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_PCI_Center_Admission_to_Procedure_by_Age_Group_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_PCI_Center_Admission_to_Procedure_by_Age_Group_UAPonly.pdf}\end{figure}
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute UAP Patients by Admission Type (directly/referred)}
+
+% DaysFromSymptomToProcedure
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:40 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 67 & 74 \\ 
+  missing & 283 & 213 \\ 
+  unique & 13 & 17 \\ 
+  mean & 4.6 & 6.8 \\ 
+  minimum & 0 & 1 \\ 
+  maximum & 64 & 50 \\ 
+  .025 & 0 & 1.8 \\ 
+  .05 & 0 & 2 \\ 
+  .10 & 1 & 2 \\ 
+  .25 & 2 & 3 \\ 
+  .50 & 3 & 5 \\ 
+  .75 & 5 & 7 \\ 
+  .90 & 9 & 11 \\ 
+  .95 & 10.7 & 19.3 \\ 
+  .975 & 11.7 & 21 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_Procedure_by_Admission_Type_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_Procedure_by_Admission_Type_UAPonly.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:40 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 67 & 74 \\ 
+  missing & 283 & 213 \\ 
+  unique & 6 & 17 \\ 
+  mean & 1.3 & 6.6 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 61 & 50 \\ 
+  .025 & 0 & 0.8 \\ 
+  .05 & 0 & 1 \\ 
+  .10 & 0 & 2 \\ 
+  .25 & 0 & 3 \\ 
+  .50 & 0 & 5 \\ 
+  .75 & 0 & 7 \\ 
+  .90 & 1 & 10.7 \\ 
+  .95 & 2.7 & 19.3 \\ 
+  .975 & 4.7 & 20 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to PCIcenterAdmission by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type_UAPonly.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:40 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 67 & 74 \\ 
+  missing & 283 & 213 \\ 
+  unique & 6 & 5 \\ 
+  mean & 1.3 & 0.4 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 61 & 13 \\ 
+  .025 & 0 & 0 \\ 
+  .05 & 0 & 0 \\ 
+  .10 & 0 & 0 \\ 
+  .25 & 0 & 0 \\ 
+  .50 & 0 & 0 \\ 
+  .75 & 0 & 0 \\ 
+  .90 & 1 & 1 \\ 
+  .95 & 2.7 & 1 \\ 
+  .975 & 4.7 & 2.3 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to IndexAdmission by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type_UAPonly.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:41 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 270 & 286 \\ 
+  missing & 80 & 1 \\ 
+  unique & 15 & 21 \\ 
+  mean & 3.2 & 6 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 35 & 58 \\ 
+  .025 & 0 & 1 \\ 
+  .05 & 0 & 2 \\ 
+  .10 & 1 & 2 \\ 
+  .25 & 2 & 3 \\ 
+  .50 & 3 & 5 \\ 
+  .75 & 4 & 7 \\ 
+  .90 & 6 & 10 \\ 
+  .95 & 7 & 12.8 \\ 
+  .975 & 9 & 16.8 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Index_Admission_to_Procedure_by_Admission_Type_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Index_Admission_to_Procedure_by_Admission_Type_UAPonly.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:41 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 270 & 286 \\ 
+  missing & 80 & 1 \\ 
+  unique & 15 & 10 \\ 
+  mean & 3.2 & 0.4 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 35 & 15 \\ 
+  .025 & 0 & 0 \\ 
+  .05 & 0 & 0 \\ 
+  .10 & 1 & 0 \\ 
+  .25 & 2 & 0 \\ 
+  .50 & 3 & 0 \\ 
+  .75 & 4 & 0 \\ 
+  .90 & 6 & 1 \\ 
+  .95 & 7 & 2.8 \\ 
+  .975 & 9 & 4 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from PCI Center Admission to Procedure by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Time_from_PCI_Center_Admission_to_Procedure_by_Admission_Type_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_PCI_Center_to_Procedure_by_Admission_Type_UAPonly.pdf}\end{figure}
+
+
+
+
+
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute UAP Patients by Left Ventricular Function}
+% c("<30","30-49","50+")
+
+% DaysFromSymptomToProcedure
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:41 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 2 & 20 & 119 \\ 
+  missing & 10 & 62 & 419 \\ 
+  unique & 2 & 11 & 17 \\ 
+  mean & 9.5 & 8.1 & 5.3 \\ 
+  minimum & 6 & 1 & 0 \\ 
+  maximum & 13 & 50 & 64 \\ 
+  .025 & 6.2 & 1.5 & 0 \\ 
+  .05 & 6.3 & 2 & 1 \\ 
+  .10 & 6.7 & 2 & 1 \\ 
+  .25 & 7.8 & 3 & 2 \\ 
+  .50 & 9.5 & 4.5 & 4 \\ 
+  .75 & 11.2 & 6.5 & 6 \\ 
+  .90 & 12.3 & 19.2 & 9.2 \\ 
+  .95 & 12.7 & 22.5 & 11 \\ 
+  .975 & 12.8 & 36.2 & 14.3 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_Procedure_by_EF_group_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_Procedure_by_EF_group_UAPonly.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:41 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 2 & 20 & 119 \\ 
+  missing & 10 & 62 & 419 \\ 
+  unique & 2 & 11 & 16 \\ 
+  mean & 3.5 & 7 & 3.6 \\ 
+  minimum & 1 & 0 & 0 \\ 
+  maximum & 6 & 50 & 61 \\ 
+  .025 & 1.1 & 0 & 0 \\ 
+  .05 & 1.3 & 0 & 0 \\ 
+  .10 & 1.5 & 0 & 0 \\ 
+  .25 & 2.2 & 0.8 & 0 \\ 
+  .50 & 3.5 & 3 & 2 \\ 
+  .75 & 4.8 & 6.5 & 5.5 \\ 
+  .90 & 5.5 & 19.1 & 8 \\ 
+  .95 & 5.7 & 21.5 & 10.1 \\ 
+  .975 & 5.9 & 35.7 & 13.3 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to PCIcenterAdmission by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_EF_group_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_EF_group_UAPonly.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:41 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 2 & 20 & 119 \\ 
+  missing & 10 & 62 & 419 \\ 
+  unique & 2 & 4 & 6 \\ 
+  mean & 0.5 & 1.2 & 0.8 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 1 & 13 & 61 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0.1 & 0 & 0 \\ 
+  .10 & 0.1 & 0 & 0 \\ 
+  .25 & 0.2 & 0 & 0 \\ 
+  .50 & 0.5 & 0 & 0 \\ 
+  .75 & 0.8 & 0.2 & 0 \\ 
+  .90 & 0.9 & 1.7 & 1 \\ 
+  .95 & 1 & 8.3 & 1.1 \\ 
+  .975 & 1 & 10.6 & 3 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to IndexAdmission by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_IndexAdmission_by_EF_group_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_IndexAdmission_by_EF_group_UAPonly.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:41 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 9 & 71 & 474 \\ 
+  missing & 3 & 11 & 64 \\ 
+  unique & 9 & 16 & 20 \\ 
+  mean & 7.4 & 6 & 4.4 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 17 & 58 & 35 \\ 
+  .025 & 0.4 & 0 & 0 \\ 
+  .05 & 0.8 & 0 & 1 \\ 
+  .10 & 1.6 & 1 & 1 \\ 
+  .25 & 4 & 2 & 2 \\ 
+  .50 & 6 & 4 & 4 \\ 
+  .75 & 12 & 6 & 6 \\ 
+  .90 & 13.8 & 10 & 8 \\ 
+  .95 & 15.4 & 16.5 & 10 \\ 
+  .975 & 16.2 & 28.2 & 12 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Index_Admission_to_Procedure_by_EF_group_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Index_Admission_to_Procedure_by_EF_group_UAPonly.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:42 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 9 & 71 & 474 \\ 
+  missing & 3 & 11 & 64 \\ 
+  unique & 7 & 10 & 13 \\ 
+  mean & 4.6 & 1.5 & 1.8 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 17 & 12 & 35 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 2 & 1 & 1 \\ 
+  .75 & 5 & 2 & 3 \\ 
+  .90 & 13 & 4 & 5 \\ 
+  .95 & 15 & 6 & 6 \\ 
+  .975 & 16 & 9.2 & 7 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from PCI Center Admission to Procedure by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_PCI_Center_Admission_to_Procedure_by_EF_group_UAPonly.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_PCI_Center_Admission_to_Procedure_by_EF_group_UAPonly.pdf}\end{figure}
+
+
+
+
+%%%% all NSTEMI patients both acute and sub-acute
+\clearpage
+\section{Date Differences in NSTEMI (acute+sub-acute) Patients}
+
+This section repeats the figures and tables for the previous section for NSTEMI patients, i.e. all five endpoint time spans compared between age-groups and both acute and sub-acute phase admissions.
+
+
+\subsection{Date Differences for NSTEMI (acute+sub-acute) Patients by Age Group}
+
+% DaysFromSymptomToProcedure
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:42 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 225 & 167 & 198 \\ 
+  missing & 19 & 11 & 18 \\ 
+  unique & 17 & 17 & 20 \\ 
+  mean & 3.6 & 4.4 & 5.2 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 21 & 36 & 37 \\ 
+  .025 & 0 & 0 & 0.9 \\ 
+  .05 & 1 & 1 & 1 \\ 
+  .10 & 1 & 1 & 1 \\ 
+  .25 & 2 & 2 & 2 \\ 
+  .50 & 3 & 3 & 4 \\ 
+  .75 & 5 & 6 & 6 \\ 
+  .90 & 8 & 8.4 & 10 \\ 
+  .95 & 9 & 11 & 15 \\ 
+  .975 & 11 & 12 & 17.1 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_Procedure_by_Age_Group_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_Procedure_by_Age_Group_allNSTEMI.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:42 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 198 & 137 & 170 \\ 
+  missing & 46 & 41 & 46 \\ 
+  unique & 13 & 14 & 18 \\ 
+  mean & 2.5 & 3.5 & 3.6 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 13 & 31 & 29 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 2 & 3 & 2 \\ 
+  .75 & 4 & 5 & 5 \\ 
+  .90 & 6 & 7 & 8 \\ 
+  .95 & 8 & 11 & 11 \\ 
+  .975 & 9 & 12 & 16 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to PCIcenterAdmission by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Age_Group_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Age_Group_allNSTEMI.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:42 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 195 & 136 & 168 \\ 
+  missing & 49 & 42 & 48 \\ 
+  unique & 9 & 10 & 8 \\ 
+  mean & 0.6 & 0.7 & 0.6 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 11 & 10 & 15 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 0 & 0 & 0 \\ 
+  .75 & 1 & 1 & 1 \\ 
+  .90 & 1 & 2 & 1 \\ 
+  .95 & 3.3 & 3.2 & 2 \\ 
+  .975 & 5 & 7 & 4.6 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to IndexAdmission by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Age_Group_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Age_Group_allNSTEMI.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:42 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rllllll}
+  \toprule
+ & AgeLower50 & Age50to59 & Age60to69 & Age70to79 & Age80to84 & Age85plus \\ 
+  \midrule
+n & 43 & 93 & 143 & 166 & 53 & 41 \\ 
+  missing & 7 & 19 & 30 & 28 & 13 & 2 \\ 
+  unique & 9 & 13 & 18 & 15 & 13 & 14 \\ 
+  mean & 2.5 & 3.7 & 4.1 & 3.9 & 4.5 & 5.4 \\ 
+  minimum & 0 & 0 & 0 & 0 & 0 & 0 \\ 
+  maximum & 9 & 65 & 38 & 31 & 19 & 35 \\ 
+  .025 & 0 & 0 & 0 & 0 & 1 & 0 \\ 
+  .05 & 0 & 0 & 1 & 0 & 1 & 0 \\ 
+  .10 & 0.2 & 1 & 1 & 1 & 2 & 1 \\ 
+  .25 & 1 & 2 & 2 & 2 & 2 & 2 \\ 
+  .50 & 2 & 3 & 3 & 3 & 3 & 4 \\ 
+  .75 & 3 & 4 & 5 & 5 & 6 & 6 \\ 
+  .90 & 5 & 6 & 8.8 & 7 & 8 & 11 \\ 
+  .95 & 6 & 7.4 & 11 & 8.8 & 9.4 & 17 \\ 
+  .975 & 6.9 & 9.7 & 14.8 & 11.9 & 11.4 & 21 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Age Group (NSTEMI)} 
+\end{table}
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:42 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 205 & 148 & 186 \\ 
+  missing & 39 & 30 & 30 \\ 
+  unique & 14 & 17 & 19 \\ 
+  mean & 3.4 & 4.2 & 4.5 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 65 & 38 & 35 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0.4 & 1 \\ 
+  .10 & 1 & 1 & 1 \\ 
+  .25 & 1 & 2 & 2 \\ 
+  .50 & 2 & 3 & 3 \\ 
+  .75 & 4 & 5 & 5 \\ 
+  .90 & 6 & 8 & 8 \\ 
+  .95 & 8.8 & 10.7 & 11.8 \\ 
+  .975 & 10 & 13.6 & 16.4 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Age Group (NSTEMI)} 
+\end{table}
+Ist the increasing time trend over age groups significant. Fit a linear qunatile regression for 1Q, median and 3Q with continuous age. The model is adjusted for urgency (acute/subacute).
+\begin{Schunk}
+\begin{Sinput}
+> model <- rq(
++     formula = DaysFromIndexAdmissionToProcedure ~ Age + HendelsesType ,
++     data = NSTEMI ,
++     na.action = na.exclude ,
++     tau = 1:3/4)
+> summary(
++     object = model ,
++     se = "boot")
+\end{Sinput}
+\begin{Soutput}
+Call: rq(formula = DaysFromIndexAdmissionToProcedure ~ Age + HendelsesType, 
+    tau = 1:3/4, data = NSTEMI, na.action = na.exclude)
+
+tau: [1] 0.25
+
+Coefficients:
+                      Value   Std. Error t value Pr(>|t|)
+(Intercept)           0.00000 1.71187    0.00000 1.00000 
+Age                   0.00000 0.01423    0.00000 1.00000 
+HendelsesTypeSubakutt 2.00000 1.39877    1.42983 0.15335 
+
+Call: rq(formula = DaysFromIndexAdmissionToProcedure ~ Age + HendelsesType, 
+    tau = 1:3/4, data = NSTEMI, na.action = na.exclude)
+
+tau: [1] 0.5
+
+Coefficients:
+                      Value    Std. Error t value  Pr(>|t|)
+(Intercept)           -2.24283  2.21828   -1.01107  0.31244
+Age                    0.03599  0.01552    2.31930  0.02075
+HendelsesTypeSubakutt  2.70245  1.97529    1.36813  0.17184
+
+Call: rq(formula = DaysFromIndexAdmissionToProcedure ~ Age + HendelsesType, 
+    tau = 1:3/4, data = NSTEMI, na.action = na.exclude)
+
+tau: [1] 0.75
+
+Coefficients:
+                      Value   Std. Error t value Pr(>|t|)
+(Intercept)           0.53668 2.63618    0.20358 0.83876 
+Age                   0.05923 0.02028    2.92096 0.00364 
+HendelsesTypeSubakutt 0.11733 2.17380    0.05398 0.95697 
+\end{Soutput}
+\begin{Sinput}
+> 
+\end{Sinput}
+\end{Schunk}
+For the 25\% earlist patients, age does not matter. If they are acute, they are treated the same day, no matter age; if subacute they are treated after latest 2.84 days, no matter age.
+
+The median is both dependent on acute/subacute and age, ca. half a day for each 10 years in age increase and 2.9 days more for subacute patients.
+
+Those 25\% who have the longest time from index admission to procedure (Q3) take 0.06 days longer for each year increase in age.
+
+Those are linear trends, but around the age of 70 the trend is not so clear (see the GAM plot in figure \ref{GAMplot: Median Date Differences from Index Admission to Procedure by Age allNSTEMI}).
+
+
+\begin{figure}
+  \centering
+  \caption{Median Date Differences from Index Admission to Procedure by Age in subacute NSTEMI patients}
+  \label{GAMplot: Median Date Differences from Index Admission to Procedure by Age allNSTEMI}
+\includegraphics[width=0.95\textwidth]{img/GAMplot_Index_Admission_to_Procedure_by_Age_and_HendelsesType_allNSTEMI.pdf}\end{figure}
+
+
+
+
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Index_Admission_to_Procedure_by_Age_Group_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Index_Admission_to_Procedure_by_Age_Group_allNSTEMI.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:44 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & AgeLower65 & Age65to74 & Age75plus \\ 
+  \midrule
+n & 204 & 147 & 186 \\ 
+  missing & 40 & 31 & 30 \\ 
+  unique & 10 & 11 & 11 \\ 
+  mean & 1.1 & 1.5 & 1.4 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 9 & 38 & 10 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 0 & 0 & 1 \\ 
+  .75 & 2 & 1.5 & 2 \\ 
+  .90 & 3 & 4.4 & 4 \\ 
+  .95 & 4.8 & 7 & 5 \\ 
+  .975 & 6.9 & 8 & 7.4 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from PCI Center Admission to Procedure by Age Group} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_PCI_Center_Admission_to_Procedure_by_Age_Group_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Age Group}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_PCI_Center_Admission_to_Procedure_by_Age_Group_allNSTEMI.pdf}\end{figure}
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for NSTEMI (acute+sub-acute) Patients by Admission Type (directly/referred)}
+
+% DaysFromSymptomToProcedure
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:44 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 270 & 320 \\ 
+  missing & 40 & 8 \\ 
+  unique & 18 & 23 \\ 
+  mean & 3.6 & 5 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 37 & 36 \\ 
+  .025 & 0 & 1 \\ 
+  .05 & 0 & 1 \\ 
+  .10 & 1 & 1.9 \\ 
+  .25 & 1 & 2 \\ 
+  .50 & 3 & 4 \\ 
+  .75 & 4 & 6 \\ 
+  .90 & 8 & 9 \\ 
+  .95 & 10 & 12 \\ 
+  .975 & 12 & 16 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_Procedure_by_Admission_Type_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_Procedure_by_Admission_Type_allNSTEMI.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:44 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 188 & 317 \\ 
+  missing & 122 & 11 \\ 
+  unique & 10 & 21 \\ 
+  mean & 0.7 & 4.6 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 15 & 31 \\ 
+  .025 & 0 & 0 \\ 
+  .05 & 0 & 1 \\ 
+  .10 & 0 & 1 \\ 
+  .25 & 0 & 2 \\ 
+  .50 & 0 & 4 \\ 
+  .75 & 1 & 6 \\ 
+  .90 & 2 & 8 \\ 
+  .95 & 3.7 & 11 \\ 
+  .975 & 5.3 & 16 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to PCIcenterAdmission by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type_allNSTEMI.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:44 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 188 & 311 \\ 
+  missing & 122 & 17 \\ 
+  unique & 10 & 10 \\ 
+  mean & 0.7 & 0.6 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 15 & 11 \\ 
+  .025 & 0 & 0 \\ 
+  .05 & 0 & 0 \\ 
+  .10 & 0 & 0 \\ 
+  .25 & 0 & 0 \\ 
+  .50 & 0 & 0 \\ 
+  .75 & 1 & 1 \\ 
+  .90 & 2 & 1 \\ 
+  .95 & 3.7 & 3 \\ 
+  .975 & 5.3 & 5 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to IndexAdmission by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type_allNSTEMI.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:44 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 212 & 327 \\ 
+  missing & 98 & 1 \\ 
+  unique & 13 & 23 \\ 
+  mean & 2.7 & 4.8 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 38 & 65 \\ 
+  .025 & 0 & 1 \\ 
+  .05 & 0 & 1 \\ 
+  .10 & 0 & 1 \\ 
+  .25 & 1 & 2 \\ 
+  .50 & 2 & 4 \\ 
+  .75 & 3 & 5 \\ 
+  .90 & 6 & 8.4 \\ 
+  .95 & 8 & 12 \\ 
+  .975 & 9 & 16.8 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Index_Admission_to_Procedure_by_Admission_Type_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Index_Admission_to_Procedure_by_Admission_Type_allNSTEMI.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:45 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rll}
+  \toprule
+ & Referred & Directly \\ 
+  \midrule
+n & 212 & 325 \\ 
+  missing & 98 & 3 \\ 
+  unique & 13 & 10 \\ 
+  mean & 2.7 & 0.4 \\ 
+  minimum & 0 & 0 \\ 
+  maximum & 38 & 10 \\ 
+  .025 & 0 & 0 \\ 
+  .05 & 0 & 0 \\ 
+  .10 & 0 & 0 \\ 
+  .25 & 1 & 0 \\ 
+  .50 & 2 & 0 \\ 
+  .75 & 3 & 0 \\ 
+  .90 & 6 & 1 \\ 
+  .95 & 8 & 2 \\ 
+  .975 & 9 & 3 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from PCI Center Admission to Procedure by Admission Type} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Time_from_PCI_Center_Admission_to_Procedure_by_Admission_Type_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Admission Type}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_PCI_Center_to_Procedure_by_Admission_Type_allNSTEMI.pdf}\end{figure}
+
+
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for NSTEMI (acute+sub-acute) Patients by Left Ventricular Function}
+% c("<30","30-49","50+")
+
+% DaysFromSymptomToProcedure
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:45 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 20 & 105 & 462 \\ 
+  missing & 0 & 8 & 38 \\ 
+  unique & 14 & 16 & 21 \\ 
+  mean & 8 & 5.3 & 4 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 36 & 21 & 37 \\ 
+  .025 & 0.5 & 0.6 & 0 \\ 
+  .05 & 1 & 1 & 1 \\ 
+  .10 & 1 & 1 & 1 \\ 
+  .25 & 2 & 3 & 2 \\ 
+  .50 & 4 & 4 & 3 \\ 
+  .75 & 10.2 & 7 & 5 \\ 
+  .90 & 18.4 & 11 & 8 \\ 
+  .95 & 31.3 & 12 & 10 \\ 
+  .975 & 33.6 & 15 & 12.5 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_Procedure_by_EF_group_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_Procedure_by_EF_group_allNSTEMI.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:45 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 16 & 90 & 399 \\ 
+  missing & 4 & 23 & 101 \\ 
+  unique & 10 & 14 & 19 \\ 
+  mean & 7.6 & 3.6 & 2.9 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 31 & 19 & 31 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 1.5 & 1 & 0 \\ 
+  .50 & 3 & 3 & 2 \\ 
+  .75 & 8.8 & 5 & 4 \\ 
+  .90 & 23 & 8 & 6 \\ 
+  .95 & 29.5 & 11 & 8.1 \\ 
+  .975 & 30.2 & 12 & 11 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to PCIcenterAdmission by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_EF_group_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_EF_group_allNSTEMI.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:45 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 16 & 89 & 394 \\ 
+  missing & 4 & 24 & 106 \\ 
+  unique & 5 & 9 & 12 \\ 
+  mean & 0.8 & 0.9 & 0.6 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 7 & 11 & 15 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 0 & 0 & 0 \\ 
+  .75 & 0.2 & 1 & 1 \\ 
+  .90 & 2.5 & 3 & 1 \\ 
+  .95 & 4 & 5 & 3 \\ 
+  .975 & 5.5 & 5.8 & 4.2 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to IndexAdmission by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_IndexAdmission_by_EF_group_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_IndexAdmission_by_EF_group_allNSTEMI.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:45 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 17 & 96 & 426 \\ 
+  missing & 3 & 17 & 74 \\ 
+  unique & 11 & 14 & 21 \\ 
+  mean & 7.6 & 4.3 & 3.8 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 33 & 19 & 65 \\ 
+  .025 & 0.4 & 0 & 0 \\ 
+  .05 & 0.8 & 0 & 0 \\ 
+  .10 & 1.6 & 1 & 1 \\ 
+  .25 & 2 & 2 & 2 \\ 
+  .50 & 3 & 4 & 3 \\ 
+  .75 & 8 & 6 & 5 \\ 
+  .90 & 22.6 & 9.5 & 7 \\ 
+  .95 & 31.4 & 10.2 & 9 \\ 
+  .975 & 32.2 & 12 & 12 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Index_Admission_to_Procedure_by_EF_group_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Index_Admission_to_Procedure_by_EF_group_allNSTEMI.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:46 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 17 & 95 & 425 \\ 
+  missing & 3 & 18 & 75 \\ 
+  unique & 5 & 11 & 12 \\ 
+  mean & 1.3 & 1.7 & 1.2 \\ 
+  minimum & 0 & 0 & 0 \\ 
+  maximum & 5 & 10 & 38 \\ 
+  .025 & 0 & 0 & 0 \\ 
+  .05 & 0 & 0 & 0 \\ 
+  .10 & 0 & 0 & 0 \\ 
+  .25 & 0 & 0 & 0 \\ 
+  .50 & 1 & 1 & 0 \\ 
+  .75 & 2 & 2 & 2 \\ 
+  .90 & 3 & 6 & 3 \\ 
+  .95 & 3.4 & 8 & 5 \\ 
+  .975 & 4.2 & 9 & 7 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from PCI Center Admission to Procedure by Left Ventricular Function} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_PCI_Center_Admission_to_Procedure_by_EF_group_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Left Ventricular Function}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_PCI_Center_Admission_to_Procedure_by_EF_group_allNSTEMI.pdf}\end{figure}
+
+
+
+
+%%% hastegrad
+\clearpage
+\subsection{Date Differences for NSTEMI (acute+sub-acute) Patients by HendelsesType}
+
+% DaysFromSymptomToProcedure
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:46 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & Elective & Acute & Subacute \\ 
+  \midrule
+n & 0 & 0 & 0 \\ 
+  missing & 0 & 0 & 0 \\ 
+  unique & 0 & 0 & 0 \\ 
+  mean & NaN & NaN & NaN \\ 
+  minimum & Inf & Inf & Inf \\ 
+  maximum & -Inf & -Inf & -Inf \\ 
+  .025 &  &  &  \\ 
+  .05 &  &  &  \\ 
+  .10 &  &  &  \\ 
+  .25 &  &  &  \\ 
+  .50 &  &  &  \\ 
+  .75 &  &  &  \\ 
+  .90 &  &  &  \\ 
+  .95 &  &  &  \\ 
+  .975 &  &  &  \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to Procedure by HendelsesType} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by HendelsesType (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by HendelsesType}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_Procedure_by_HendelsesType_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by HendelsesType (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by HendelsesType}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_Procedure_by_HendelsesType_allNSTEMI.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:46 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & Elective & Acute & Subacute \\ 
+  \midrule
+n & 0 & 0 & 0 \\ 
+  missing & 0 & 0 & 0 \\ 
+  unique & 0 & 0 & 0 \\ 
+  mean & NaN & NaN & NaN \\ 
+  minimum & Inf & Inf & Inf \\ 
+  maximum & -Inf & -Inf & -Inf \\ 
+  .025 &  &  &  \\ 
+  .05 &  &  &  \\ 
+  .10 &  &  &  \\ 
+  .25 &  &  &  \\ 
+  .50 &  &  &  \\ 
+  .75 &  &  &  \\ 
+  .90 &  &  &  \\ 
+  .95 &  &  &  \\ 
+  .975 &  &  &  \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to PCIcenterAdmission by HendelsesType} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by HendelsesType (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by HendelsesType}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_HendelsesType_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by HendelsesType (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by HendelsesType}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_HendelsesType_allNSTEMI.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:46 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & Elective & Acute & Subacute \\ 
+  \midrule
+n & 0 & 0 & 0 \\ 
+  missing & 0 & 0 & 0 \\ 
+  unique & 0 & 0 & 0 \\ 
+  mean & NaN & NaN & NaN \\ 
+  minimum & Inf & Inf & Inf \\ 
+  maximum & -Inf & -Inf & -Inf \\ 
+  .025 &  &  &  \\ 
+  .05 &  &  &  \\ 
+  .10 &  &  &  \\ 
+  .25 &  &  &  \\ 
+  .50 &  &  &  \\ 
+  .75 &  &  &  \\ 
+  .90 &  &  &  \\ 
+  .95 &  &  &  \\ 
+  .975 &  &  &  \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Symptom Onset to IndexAdmission by HendelsesType} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by HendelsesType (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by HendelsesType}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Symptom_Onset_to_IndexAdmission_by_HendelsesType_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by HendelsesType (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by HendelsesType}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Symptom_Onset_to_IndexAdmission_by_HendelsesType_allNSTEMI.pdf}\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:46 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & Elective & Acute & Subacute \\ 
+  \midrule
+n & 0 & 0 & 0 \\ 
+  missing & 0 & 0 & 0 \\ 
+  unique & 0 & 0 & 0 \\ 
+  mean & NaN & NaN & NaN \\ 
+  minimum & Inf & Inf & Inf \\ 
+  maximum & -Inf & -Inf & -Inf \\ 
+  .025 &  &  &  \\ 
+  .05 &  &  &  \\ 
+  .10 &  &  &  \\ 
+  .25 &  &  &  \\ 
+  .50 &  &  &  \\ 
+  .75 &  &  &  \\ 
+  .90 &  &  &  \\ 
+  .95 &  &  &  \\ 
+  .975 &  &  &  \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by HendelsesType} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by HendelsesType (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by HendelsesType}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_Index_Admission_to_Procedure_by_HendelsesType_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by HendelsesType (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by HendelsesType}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_Index_Admission_to_Procedure_by_HendelsesType_allNSTEMI.pdf}\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:47 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rlll}
+  \toprule
+ & Elective & Acute & Subacute \\ 
+  \midrule
+n & 0 & 0 & 0 \\ 
+  missing & 0 & 0 & 0 \\ 
+  unique & 0 & 0 & 0 \\ 
+  mean & NaN & NaN & NaN \\ 
+  minimum & Inf & Inf & Inf \\ 
+  maximum & -Inf & -Inf & -Inf \\ 
+  .025 &  &  &  \\ 
+  .05 &  &  &  \\ 
+  .10 &  &  &  \\ 
+  .25 &  &  &  \\ 
+  .50 &  &  &  \\ 
+  .75 &  &  &  \\ 
+  .90 &  &  &  \\ 
+  .95 &  &  &  \\ 
+  .975 &  &  &  \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from PCI Center Admission to Procedure by HendelsesType} 
+\end{table}
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by HendelsesType (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by HendelsesType}
+\includegraphics[width=0.95\textwidth]{img/Boxplot_PCI_Center_Admission_to_Procedure_by_HendelsesType_allNSTEMI.pdf}\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by HendelsesType (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by HendelsesType}
+\includegraphics[width=0.95\textwidth]{img/Densityplot_PCI_Center_Admission_to_Procedure_by_HendelsesType_allNSTEMI.pdf}\end{figure}
+
+
+
+
+
+\chapter{Poster}
+
+% latex table generated in R 3.1.2 by xtable 1.7-4 package
+% Fri Jan 23 14:53:47 2015
+\begin{table}[ht]
+\centering
+\begin{tabular}{rllllllll}
+  \toprule
+ & Referred & Directly & AgeLower65 & Age65to74 & Age75plus & EFlower30 & EF30to49 & EF50plus \\ 
+  \midrule
+n & 212 & 327 & 205 & 148 & 186 & 17 & 96 & 426 \\ 
+  missing & 98 & 1 & 39 & 30 & 30 & 3 & 17 & 74 \\ 
+  unique & 13 & 23 & 14 & 17 & 19 & 11 & 14 & 21 \\ 
+  mean & 2.7 & 4.8 & 3.4 & 4.2 & 4.5 & 7.6 & 4.3 & 3.8 \\ 
+  minimum & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\ 
+  maximum & 38 & 65 & 65 & 38 & 35 & 33 & 19 & 65 \\ 
+  .025 & 0 & 1 & 0 & 0 & 0 & 0.4 & 0 & 0 \\ 
+  .05 & 0 & 1 & 0 & 0.4 & 1 & 0.8 & 0 & 0 \\ 
+  .10 & 0 & 1 & 1 & 1 & 1 & 1.6 & 1 & 1 \\ 
+  .25 & 1 & 2 & 1 & 2 & 2 & 2 & 2 & 2 \\ 
+  .50 & 2 & 4 & 2 & 3 & 3 & 3 & 4 & 3 \\ 
+  .75 & 3 & 5 & 4 & 5 & 5 & 8 & 6 & 5 \\ 
+  .90 & 6 & 8.4 & 6 & 8 & 8 & 22.6 & 9.5 & 7 \\ 
+  .95 & 8 & 12 & 8.8 & 10.7 & 11.8 & 31.4 & 10.2 & 9 \\ 
+  .975 & 9 & 16.8 & 10 & 13.6 & 16.4 & 32.2 & 12 & 12 \\ 
+   \bottomrule
+\end{tabular}
+\caption{Number of Days from Index Admission to Procedure by Admission Type, Age and Left Ventricular Function in NSTEMI patients} 
+\end{table}
+
+\begin{figure}
+  \centering
+  \caption{Median Time from Index Admission to Procedure by Age in NSTEMI patients}
+  \label{GAMplot: Median Date Differences from Index Admission to Procedure by Age allNSTEMI}
+\includegraphics[width=0.95\textwidth]{img/Poster_GAMplot_Index_Admission_to_Procedure_by_Age_allNSTEMI.pdf}\end{figure}
+
+
+
+
+\begin{figure}
+  \centering
+  \caption{Time from Index Admission to Procedure by Admission Type in NSTEMI patients treated at Haukeland University Hosptial Bergen in 2014}
+  \label{Density: Date Differences from Index Admission to Procedure by Admission Type allNSTEMI}
+\includegraphics[width=0.95\textwidth]{img/Poster_Densityplot_Index_Admission_to_Procedure_by_Admission_Type_allNSTEMI.pdf}\end{figure}
+
+
+\end{document}
+
+
