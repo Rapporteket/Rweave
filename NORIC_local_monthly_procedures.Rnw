@@ -29,11 +29,7 @@ brew <- function(
 library(yaml)
 
 conf <- yaml.load_file('../dbConfig.yml')
-<<<<<<< HEAD
 ## reshID <- 2 ## for local testing
-=======
-## reshID <- 1 ## for local testing
->>>>>>> 726e155217ccdf3dd8f3d06d72b273e7c1888e4b
 
 printname <- unlist( conf [[paste("noric" , reshID , sep = "")]]["disp"])
 
@@ -58,11 +54,7 @@ t <- dbGetQuery( con, "SET NAMES utf8;" )
 query <- "
 SELECT
    M.MCEID, M.PARENT_MCEID, M.INTERVENTION_TYPE, M.MCETYPE,
-<<<<<<< HEAD
    R.INTERDAT, R.JOURTID, R.REGTYP, R.INDIKATION, R.FYND, R.DIATRYCK, R.DIADOP, R.DIAIVUS, R.PRIMBES, R.LABNO , R.STRALDOS , R.ANGIOGRAFOR ,
-=======
-   R.INTERDAT, R.JOURTID, R.REGTYP, R.INDIKATION, R.FYND, R.DIATRYCK, R.DIADOP, R.DIAIVUS, R.PRIMBES,
->>>>>>> 726e155217ccdf3dd8f3d06d72b273e7c1888e4b
    I.HOSP_ADMISSIONDATE, I.TRANSFERREDPATIENT, I.TRANSFERREDFROM, H.NAME AS TRANSFERREDFROMchar, I.REFERRING_HOSP_ADMISSIONDATE, I.KILLIPKLASS, I.SYMPTOM_ONSET_DATE, I.SYMPTOM_ONSET_TIME, I.SYMPTOM_ONSET_MISSING, I.PREHOSPITAL_ECG_DATE, I.PREHOSPITAL_ECG_TIME, I.PREHOSPITAL_ECG_MISSING, I.THROMB_GIVEN_DATE, I.THROMB_GIVEN_TIME, I.ADMISSION_ER_DATE, I.ADMISSION_ER_TIME
 FROM mce M
    INNER JOIN regangio R ON M.MCEID=R.MCEID
@@ -199,12 +191,9 @@ dat$HOSP_ADMISSIONDATE <- as.Date( dat$HOSP_ADMISSIONDATE , "%Y-%m-%d")
 dat$ADMISSION_ER_DATE <- as.Date( dat$ADMISSION_ER_DATE , "%Y-%m-%d")
 dat$INTERDAT <- as.Date( dat$INTERDAT , "%Y-%m-%d")
 
-<<<<<<< HEAD
    ### restrict dataset to current and last year
 as.numeric( format( dat$INTERDAT , "%Y" )) >= as.numeric( format( Sys.time() , "%Y" )) - 1 
 
-=======
->>>>>>> 726e155217ccdf3dd8f3d06d72b273e7c1888e4b
    ### month variable for agregation
 dat$Month <- format(dat$INTERDAT , "%y-%m")
 
