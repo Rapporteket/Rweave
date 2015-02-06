@@ -1,0 +1,4595 @@
+\documentclass[a4paper]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage[absolute,overlay]{textpos}
+\usepackage{xspace}
+\usepackage{booktabs}
+\usepackage{rotating}
+\usepackage{booklet}               % printing A5 landscape on folded A4 pdf
+\usepackage{array}                 % table formatting with array
+\usepackage{longtable}             % tables longer then one page
+\usepackage{caption}               % better captions
+\usepackage{makeidx}               % indexing the document
+\usepackage{Sweave}
+
+\pagestyle {headings}
+\graphicspath {{img/}}
+
+\makeindex
+
+
+\begin{document}
+
+\title{}
+\author{}
+\date{}
+
+\maketitle
+
+\tableofcontents
+
+
+<<echo = FALSE , results = tex>>=
+library(car)             # recoding variables
+library(ggplot2)         #  advanced figures
+library(quantreg)        #  quantile regression
+library(xtable)          # LaTeX tables
+
+library(RColorBrewer)    # intellingent colour palettes
+
+brew <- function(
+    N = 3 ,
+    alpha = "AA" ) paste(
+        brewer.pal(
+            n = N , 
+            name = if(N<9) "Dark2" else "Set3" ) ,
+        alpha ,
+        sep = "")
+library(yaml)
+
+conf <- yaml.load_file('../dbConfig.yml')
+## reshID <- 2 ## for local testing
+
+printname <- unlist( conf [[paste("noric" , reshID , sep = "")]]["disp"])
+
+cat("\\title{NORIC" , printname , "\\\\Time to treatment}\n\n")
+cat("\\date{" , date() , "}\n\n")
+
+@ 
+
+
+<<echo = FALSE , eval = TRUE>>=
+
+library(RMySQL)          # accessing the database
+
+con <- dbConnect( dbDriver("MySQL") ,
+  dbname = unlist( conf[[paste("noric" , reshID , sep = "")]]["name"]) ,
+  host = unlist( conf[[paste("noric" , reshID , sep = "")]]["host"]) ,
+  user = unlist( conf[[paste("noric" , reshID , sep = "")]]["user"]) ,
+  password = unlist( conf[[paste("noric" , reshID , sep = "")]]["pass"]) )
+
+# ensure utf8 encoding
+t <- dbGetQuery( con, "SET NAMES utf8;" )
+
+dat <- dbGetQuery( con , "select * from AngioPCI" )
+con <- dbDisconnect(con)
+con <- dbUnloadDriver(dbDriver("MySQL"))
+@ 
+
+
+
+\paragraph{Define} auxillary functions:
+\begin{itemize}
+  \item{``describe'' to summarize the distribution of time differences (between groups of patients) in a readable table format.}
+  \item{``TimeGAM'' to plot the anual variation of time spans by month of the year.}
+\end{itemize}
+
+<<echo = TRUE , eval = TRUE>>=
+describe <- function(X){
+    DTAB <- c(
+        as.character(sum(!is.na(X))) ,
+        sum(is.na(X)) ,
+        length(na.exclude(unique(X))) ,
+        round(x = mean( X , na.rm = TRUE ) ,
+              digits = 1 ) ,
+        min( X , na.rm = TRUE ) ,
+        max( X , na.rm = TRUE ) ,
+        round(
+              quantile( X ,na.rm = TRUE , probs = .025 ) ,
+              digits = 1) ,
+        round(
+              quantile( X ,na.rm = TRUE , probs = .05 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .10 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .25 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .50 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .75 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .90 ) ,
+              digits = 1) ,
+        round(
+              quantile( X , na.rm = TRUE , probs = .95 ) ,
+              digits = 1) , 
+        round(
+              quantile( X , na.rm = TRUE , probs = .975 ) ,
+              digits = 1))
+    attr( DTAB , "names") <- c("n",
+                               "missing",
+                               "unique",
+                               "mean",
+                               "minimum",
+                               "maximum",
+                               ".025",
+                               ".05",
+                               ".10",
+                               ".25",
+                               ".50",
+                               ".75",
+                               ".90",
+                               ".95",
+                               ".975")
+    return(DTAB)}
+
+
+
+TimeGAM <- function(
+    x ,
+    data = Subacute ,
+    ymax = 14 ,
+    lambda = 0.8 ) {
+
+    DAT <- na.exclude(
+        data.frame(
+            Days = data[,paste(x)] ,
+            Month = as.numeric(data$Month) ))
+
+    NTAB <- as.numeric(
+        table(
+            as.numeric(DAT$Month)))
+
+    op <- par( las = 1 , mar = c( 5 , 4 , 4, 2) + 0.1 )
+
+    plot(
+        Days ~ jitter(Month) ,
+        data = DAT ,
+        ylim = c(-1 , ymax) ,
+        pch = 16 ,
+        bty = "n" ,
+        axes = FALSE ,
+        col = "#1a1a1a11" ,
+        main = "" ,
+        xlab = "Month" ,
+        ylab = "Days" )
+    
+    axis(side = 1 ,
+         at = 1:12)
+
+    axis(side = 2 ,
+         at = 0:ymax)
+
+    text(x = 1:12 ,
+         y = rep(x = -0.5 , times = 12) ,
+         labels = NTAB)
+    
+    text(x = 0 ,
+         y = -0.5 ,
+         labels = "N")
+        
+    abline(h = 0:15 ,
+           col = "#1a1a1a11" ,
+           lty = 2)
+    
+plot( 
+    rqss(
+        Days ~ qss( Month , lambda = lambda ) ,
+        tau = 0.25 ,
+        data = DAT ) ,
+    rug = FALSE ,
+    add = TRUE )
+
+plot( 
+    rqss(
+        Days ~ qss( Month , lambda = lambda ) ,
+        tau = 0.50 ,
+        data = DAT ) ,
+    rug = FALSE ,
+    add = TRUE )
+
+plot( 
+    rqss(
+        Days ~ qss( Month , lambda = lambda ) ,
+        tau = 0.75 ,
+        data = DAT ) ,
+    rug = FALSE ,
+    add = TRUE )
+
+par(op)}
+
+@ 
+
+
+\paragraph{R Session Info - Analytic Software Versions }
+<<echo = TRUE , results = tex>>=
+toLatex(sessionInfo(), locale = FALSE)
+@ 
+
+
+
+
+
+\section{Recode Dates and Calculate Date Differences in Days}
+
+Dates are exported as character strings (like  ``Jan 24, 2014'') and have to be reformated to POSIX date format.
+
+The admission date at referring hospital variable is empty for patients directly admitted to the PCI center. Since admission to procedure time will be compared for directly/indirectly admitted patients there has to be a common admission date and date difference variable. \emph{REFERRING\_HOSP\_ADMISSIONDATE} is updated with \emph{HOSP\_ADMISSIONDATE} for those patients directly admitted.
+
+<<echo = TRUE , eval = TRUE>>=
+
+dat$InnleggelsesdatoDetteSykehus <- as.Date(
+    dat$InnleggelsesdatoDetteSykehus ,
+    format = "%b %d, %Y")
+
+dat$DatoInnleggelseIHenvisendeSykehus <- as.Date(
+    dat$DatoInnleggelseIHenvisendeSykehus ,
+    format = "%b %d, %Y")
+IndexOfMissing <- which( is.na( dat$DatoInnleggelseIHenvisendeSykehus ))
+dat$DatoInnleggelseIHenvisendeSykehus[ IndexOfMissing ] <-
+    dat$InnleggelsesdatoDetteSykehus[ IndexOfMissing ]
+
+dat$AnkomstPCIDato <- as.Date(
+    dat$AnkomstPCIDato ,
+    format = "%b %d, %Y")
+
+dat$ProsedyreDato <- as.Date(
+    dat$ProsedyreDato ,
+    format = "%b %d, %Y")
+dat$Month <- factor( format( dat$ProsedyreDato , "%y-%m") )
+
+dat$SymptomDato <- as.Date(
+    dat$SymptomDato , 
+    format = "%b %d, %Y")
+
+dat$FodselsDato <- as.Date(
+    dat$FodselsDato ,
+    format = "%b %d, %Y")
+
+dat$DatoForApningKar <- as.Date(
+    dat$DatoForApningKar ,
+    format = "%b %d, %Y")
+@ 
+
+
+
+Calculate the date differences in days. These are the main endpoints for the subsequent analysis. 
+
+<<echo = TRUE , eval = TRUE>>=
+
+dat$DaysFromSymptomToProcedure <- as.numeric(
+    dat$ProsedyreDato - dat$SymptomDato )
+
+dat$DaysFromSymptomToPCIcenterAdmission <- as.numeric(
+    dat$InnleggelsesdatoDetteSykehus - dat$SymptomDato )
+
+dat$DaysFromSymptomToIndexAdmission <- as.numeric(
+    dat$DatoInnleggelseIHenvisendeSykehus - dat$SymptomDato )
+
+dat$DaysFromIndexAdmissionToProcedure <- as.numeric(
+    dat$ProsedyreDato - dat$DatoInnleggelseIHenvisendeSykehus )
+
+dat$DaysFromPCIcenterAdmissionToProcedure <- as.numeric(
+    dat$ProsedyreDato - dat$InnleggelsesdatoDetteSykehus )
+@ 
+
+
+
+\section{Create Factor Variables for Subgroup Analysis}
+The patients age at procedure has to be calculated. Then grouping factors for age, and left ventricular funtion are created. Note that the variable for left ventricular function should be LEFT\_VENTRICULAR\_FUNCTION in the initialcare table according to the XML variable list, but does not exist. As a replacement ``Known deficiency in left ventricular function'' is used. Note also, that terminology of this variable in the database is not correct (``HISTORY\_OF\_CHF'').
+
+<<echo = TRUE , eval = TRUE>>=
+dat$Age <- as.numeric(
+    dat$ProsedyreDato - dat$FodselsDato) / 365
+
+dat$AgeGroup3 <- cut(x = dat$Age,
+                    breaks = c(0,65,75,200),
+                    right = FALSE,
+                    labels = c("<65","65-74","75+"))
+
+dat$AgeGroup6 <- cut(x = dat$Age ,
+                     breaks = c(0,50,60,70,80,85,100) ,
+                     right = FALSE,
+                     labels = c("<50","50-59","60-69","70-79","80-84","85+"))
+
+
+
+dat$EFgroup <- recode(var = dat$KjentNedsattVenstVentr ,
+                      recodes = "
+''=NA;
+'Ja, Lett nedsatt (40-49%)'='30-49';
+'Ja, men ukjent grad'=NA;
+'Ja, Moderat nedsatt (30-39%)'='30-49';
+'Kraftig nedsatt (<30%)'='<30';
+'Nei'='50+';
+'Ukjent'=NA;
+")
+
+dat$EFgroup <- addNA(
+    factor(x = dat$EFgroup ,
+           levels = c(
+               '<30',
+               '30-49',
+               '50+')))
+
+dat$AdmissionType <- factor( dat$OverflyttetFraSykehus=="" , labels = c("Directly","Referred"))
+
+@ 
+
+
+
+\section{Quality Check}
+Before proceeding to analysis check the data for false registrations which result in gross outliers. Obvious errors are negative or unusully long time differences from symptom onset to procedure. These criteria have been used to identify and correct the following false registrations. The crude distribution of the time span variables in the total data set are shown in table \ref{table:TimeSpanQuantiles}
+
+<<echo = TRUE , results = tex>>=
+print(
+    xtable(
+        data.frame(
+            SymptomToProcedure = describe(
+                dat$DaysFromSymptomToProcedure) ,
+            SymptomToPCIcenter = describe(
+                dat$DaysFromSymptomToPCIcenterAdmission) ,
+            SymptomToAdmission = describe(
+                dat$DaysFromSymptomToIndexAdmission) ,
+            AdmissionToProcedure = describe(
+                dat$DaysFromIndexAdmissionToProcedure) ,
+            PCIcenterToProcedure = describe(
+                dat$DaysFromPCIcenterAdmissionToProcedure)) ,
+        label = "table:TimeSpanQuantiles" ,
+        caption = "Quantiles of All Time Span Endpoint Variables in the Total Data") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@ 
+
+
+
+First list registrations with negative time differences from symptom onset (meaning treatment before symptom)
+<<echo = TRUE , eval = TRUE>>=
+dat[
+    which( dat$DaysFromSymptomToProcedure < 0 ) ,
+    c(
+        "ForlopsID",
+        "PasientRegDato",
+        "InnleggelsesdatoDetteSykehus",
+        "DatoInnleggelseIHenvisendeSykehus",
+        "SymptomDato",
+        "ProsedyreDato") ]
+@ 
+
+
+Previous checks have shown that registrations with more then 100 days from symtpom to procedure are false.
+<<echo = TRUE , eval = TRUE>>=
+dat[
+    which( dat$DaysFromSymptomToProcedure > 100 ) ,
+    c(
+        "ForlopsID",
+        "PasientRegDato",
+        "InnleggelsesdatoDetteSykehus",
+        "DatoInnleggelseIHenvisendeSykehus",
+        "SymptomDato",
+        "ProsedyreDato") ]
+@ 
+
+
+
+
+False registrations are simply excluded in the following analysis, since it takes considerable time to correct them and the rank statistics calculated for the time variables are not effected by small amounts of outliers (which on top are randomly distributed).
+
+<<echo = TRUE , eval = TRUE>>=
+dat$DaysFromSymptomToProcedure[ which(
+    dat$DaysFromSymptomToProcedure < 0 )] <- NA
+
+dat$DaysFromSymptomToPCIcenterAdmission[ which(
+    dat$DaysFromSymptomToPCIcenterAdmission < 0 )] <- NA
+
+dat$DaysFromSymptomToIndexAdmission[ which(
+    dat$DaysFromSymptomToIndexAdmission < 0 )] <- NA
+
+dat$DaysFromIndexAdmissionToProcedure[ which(
+    dat$DaysFromIndexAdmissionToProcedure < 0 )] <- NA
+
+dat$DaysFromPCIcenterAdmissionToProcedure[ which(
+    dat$DaysFromPCIcenterAdmissionToProcedure < 0 )] <- NA
+
+dat$DaysFromSymptomToProcedure[ which(
+    dat$DaysFromSymptomToProcedure > 100 )] <- NA
+
+dat$DaysFromSymptomToPCIcenterAdmission[ which(
+    dat$DaysFromSymptomToPCIcenterAdmission > 100 )] <- NA
+
+dat$DaysFromSymptomToIndexAdmission[ which(
+    dat$DaysFromSymptomToIndexAdmission > 100 )] <- NA
+
+dat$DaysFromIndexAdmissionToProcedure[ which(
+    dat$DaysFromIndexAdmissionToProcedure > 100 )] <- NA
+
+dat$DaysFromPCIcenterAdmissionToProcedure[ which(
+    dat$DaysFromPCIcenterAdmissionToProcedure > 100 )] <- NA
+@ 
+
+
+\section{Select Study Population}
+Select the target populations registered 01/01-2014 -- 12/31-2014 from the main dataset. The following subsets are selected:
+\begin{itemize}
+\item{all sub-acute patients}  
+\item{sub-acute NSTEMI patients}  
+\item{sub-acute UAP patients}  
+\item{all NSTEMI patients both sub-acute and acute}  
+  \item{subacute NSTEMI and UAP patients 
+
+Note that the indication for admission has to be recategorized since this variable (\emph{Indikasjon}) has only two levels (NSTEMI,UAP) in the final dataset.
+
+<<echo = TRUE , eval = TRUE>>=
+Subacute <- subset(x = dat,
+                       subset = (
+                           (format(dat$ProsedyreDato , "%Y") == "2014") &
+                           (Indikasjon %in% c("UAP","NSTEMI")) &
+                           (HendelsesType  == "Subakutt")))
+
+Subacute$Indikasjon <- factor(Subacute$Indikasjon)
+
+SubacuteNSTEMI <- subset(x = dat,
+                         subset = (
+                             (format(dat$ProsedyreDato , "%Y") == "2014") &
+                             (Indikasjon == "NSTEMI") &
+                             (HendelsesType  == "Subakutt")))
+SubacuteUAP <- subset(x = dat,
+                      subset = (
+                          (format(dat$ProsedyreDato , "%Y") == "2014") &
+                          (Indikasjon == "UAP") &
+                          (HendelsesType  == "Subakutt")))
+
+NSTEMI <- subset(x = dat,
+                 subset = (
+                     (format(dat$ProsedyreDato , "%Y") == "2014") &
+                     (Indikasjon == "NSTEMI")))
+@ 
+
+
+
+\chapter{Analyses}
+
+
+
+\section{Patient Characteristics}
+The final dataset contains 1311 procedures for subacute NSTEMI/UAP patients treated in 2014 at Haukeland University Hosptial Bergen. The following paragraph will tabulate some crude numbers about the population in simple R output tables.
+
+<<echo = TRUE , eval = TRUE>>=
+       
+addmargins(xtabs(formula = ~ AgeGroup3 + Kjonn ,
+                 data = Subacute))
+
+addmargins(xtabs(formula = ~ Indikasjon + Kjonn ,
+                 data = Subacute))
+
+addmargins(xtabs(formula = ~ AdmissionType + Kjonn ,
+                 data = Subacute))
+@ 
+
+
+
+
+\clearpage
+\section{Date Differences in Subacute Patients}
+
+The following sections will contain crude tables and plots of the five date differences calculated before:
+\begin{enumerate}
+\item{DaysFromSymptomToProcedure}
+\item{DaysFromSymptomToPCIcenterAdmission}
+\item{DaysFromSymptomToIndexAdmission}
+\item{DaysFromIndexAdmissionToProcedure}
+\item{DaysFromPCIcenterAdmissionToProcedure}
+\end{enumerate}
+
+These time spans will be compared accross several groups of patients:
+\begin{enumerate}
+\item{UAP vs. NSTEMI}
+\item{age groups ($<65$ , $65--74$, $\geq75$)}
+\item{admission type (referred/directly to PCI center)}
+\item{Left ventricular function ($<30$ , $30-50$ , $\geq50$)}
+\end{enumerate}
+
+There are many possibilities to analyse the five endpoint variables across groups of patients. For illustrational purpose the first time span from symptom onset to precedure by indication for treatment in subacute UAP and NSTEMI patients will be analyzed and visualized more extensively as an example.
+
+
+\subsection{Introduction and Examples - Days From System Onset to Procedure for Subacute Patients by Indikasjon}
+Table \ref{Summary_Symptom_to_Procedure_by_Indikasjon} contains the basic information about the time span from system onset to procedure compared between subgroups of UAP vs NSTEMI patients. How many patients/procedures are in each group, how many registrations are missing, the minimum, maxium and mean time period and some quantiles (0.05, 0.10, \ldots). The quantiles refer to how many percent of the patients had there procedure before X days from symptom onset. The differing amount of days for the different quantiles in each group can be tested against the null hypothesis that the observed difference was accidentially and non-systematic and that the real difference is zero. The method of quantile regression is presented for this purpose. Finally there are three common methods to visualize the time distributions for each group, boxplot, violinplot and overimposed densityplots. All three are shown as an example, but for the subsequent list of all time span variables between all groups only summary table, boxplot and densityplot are shown.
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    UAP = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$Indikasjon == "UAP" ]) ,
+    NSTEMI = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$Indikasjon == "NSTEMI" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               label = "Summary_Symptom_to_Procedure_by_Indikasjon" ,
+               caption = "Number of Days from Symptom Onset to Procedure by Indikasjon (UAP vs NSTEMI)") ,
+       booktabs = TRUE)
+@ 
+
+
+\clearpage
+\subsubsection{Quantile Regression for Differences in Time to Treatment between UAP/NSTEMI Procedures}
+It is also possible to test the quantiles for group differences by means of quantile regression. This is just a preliminary example.
+<<echo = TRUE , eval = TRUE>>=
+summary(
+    rq(formula = DaysFromSymptomToProcedure ~ Indikasjon ,
+       tau = c(0.05,0.10,0.25,0.50,0.75,0.90,0.95) ,
+       data = Subacute ,
+       na.action = na.exclude))
+@ 
+
+The crude R quantile regression output is quite lengthy and needs to be explained: The ``tau:'' values correspond with the quantiles of the summary table \ref{Summary_Symptom_to_Procedure_by_Indikasjon}. There are no significant differences, execpt the 75-percentile, which is significantly shorter for NSTEMI patients compared to UAP patients (7 vs 8 days respectively, p = 0.011). This means that for 75\% of patients it takes no longer then 7 days after onset of NSTEMI symptoms to get to angiography. Significantly 1 day less then for UAP patients.
+
+
+\clearpage
+\subsubsection{Graphical Representations}
+Now some graphical presentations of the time differences by indication groups. Some of the figures are redundant: boxplot, violinplot and overlapping densityplot (with transparence) are methods to show the distribution of the time span across subgroups of patients --- they contain the same information and which one to choose finally is a matter of personal prevalence. A GAM quantile plot (figure \ref{GAM: Date Differences from Symptom Onset to Procedure over Time}) shows how delays in treatment varies over the time of year.
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Indikasjon (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ Indikasjon ,
+        data = Subacute ,
+        xlab = "Indikasjon for Procedure" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Indikasjon (Violinplot)}
+  \label{Violin: Date Differences from Symptom Onset to Procedure by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Violinplot_Symptom_Onset_to_Procedure_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       mapping = aes(
+           x = DaysFromSymptomToProcedure)) +
+    stat_density(mapping = aes(
+                     ymax = ..density..,
+                     ymin = -..density..),
+                 fill = "grey50",
+                 colour = "grey50",
+                 alpha = 0.5 ,
+                 adjust = 1 ,
+                 geom = "ribbon",
+                 position = "identity") +
+    facet_grid(. ~ Indikasjon) +
+    coord_flip() +
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Indikasjon (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = Indikasjon ,
+           colour = Indikasjon))+
+    geom_density(mapping = aes(fill = Indikasjon) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,20)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\begin{figure}
+  \centering
+  \caption{Quantiles of Date Differences from Symptom Onset to Procedure over Time (GAM-plot)\\
+  The lower through upper lines denote the 25th, 50th and 75th percentile respectively}
+  \label{GAM: Date Differences from Symptom Onset to Procedure over Time}
+<<echo=FALSE , results = tex>>=
+file = "img/GAM_Symptom_Onset_to_Procedure_over_time.pdf"
+pdf(file , width = 6 , height = 4)
+
+TimeGAM(x = "DaysFromSymptomToProcedure" ,
+        data = Subacute ,
+        ymax = 10 ,
+        lambda = 0.8)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+The following sections contain a list of summary tables and figures for the discussed endpoints by the mentioned groups of explanatory factors. The captions of figures and tables should speak for themselves.
+
+
+
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute Patients by Month of Procedure}
+
+\begin{figure}
+  \centering
+  \caption{Quantiles of Date Differences from Index Admission to Procedure over Time for Subacute UAP/NSTEMI patients\\
+  The lower through upper lines denote the 25th, 50th and 75th percentile respectively}
+  \label{GAM: Date Differences from Index Admission to Procedure over Time UAP+NSTEMI}
+<<echo=FALSE , results = tex>>=
+file = "img/GAM_index_admission_to_Procedure_over_time_UAP_NSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+TimeGAM(x = "DaysFromIndexAdmissionToProcedure" ,
+        data = Subacute ,
+        ymax = 10 ,
+        lambda = 0.8 )
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute Patients by Indikasjon}
+
+% DaysFromSymptomToProcedure
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    UAP = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$Indikasjon == "UAP" ]) ,
+    NSTEMI  = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$Indikasjon == "NSTEMI" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by Indikasjon") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Indikasjon (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ Indikasjon ,
+        data = Subacute ,
+        xlab = "Indikasjon for Procedure" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Indikasjon (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = Indikasjon ,
+           colour = Indikasjon))+
+    geom_density(mapping = aes(fill = Indikasjon) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    UAP = describe(
+        Subacute$DaysFromSymptomToPCIcenterAdmission[ Subacute$Indikasjon == "UAP" ]) ,
+    NSTEMI  = describe(
+        Subacute$DaysFromSymptomToPCIcenterAdmission[ Subacute$Indikasjon == "NSTEMI" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to PCIcenterAdmission by Indikasjon") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Indikasjon (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToPCIcenterAdmission ~ Indikasjon ,
+        data = Subacute ,
+        xlab = "Indikasjon for Procedure" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Indikasjon (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromSymptomToPCIcenterAdmission ,
+           group = Indikasjon ,
+           colour = Indikasjon))+
+    geom_density(mapping = aes(fill = Indikasjon) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    UAP = describe(
+        Subacute$DaysFromSymptomToIndexAdmission[ Subacute$Indikasjon == "UAP" ]) ,
+    NSTEMI  = describe(
+        Subacute$DaysFromSymptomToIndexAdmission[ Subacute$Indikasjon == "NSTEMI" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to IndexAdmission by Indikasjon") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Indikasjon (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToIndexAdmission ~ Indikasjon ,
+        data = Subacute ,
+        xlab = "Indikasjon for Procedure" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Indikasjon (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromSymptomToIndexAdmission ,
+           group = Indikasjon ,
+           colour = Indikasjon))+
+    geom_density(mapping = aes(fill = Indikasjon) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    UAP = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$Indikasjon == "UAP" ]) ,
+    NSTEMI  = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$Indikasjon == "NSTEMI" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Indikasjon") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Indikasjon (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Index_Admission_to_Procedure_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromIndexAdmissionToProcedure ~ Indikasjon ,
+        data = Subacute ,
+        xlab = "Indikasjon for Procedure" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Indikasjon (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Index_Admission_to_Procedure_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = Indikasjon ,
+           colour = Indikasjon))+
+    geom_density(mapping = aes(fill = Indikasjon) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    UAP = describe(
+        Subacute$DaysFromPCIcenterAdmissionToProcedure[ Subacute$Indikasjon == "UAP" ]) ,
+    NSTEMI  = describe(
+        Subacute$DaysFromPCIcenterAdmissionToProcedure[ Subacute$Indikasjon == "NSTEMI" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from PCI Center Admission to Procedure by Indikasjon") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Indikasjon (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Time_from_PCI_Center_Admission_to_Procedure_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromPCIcenterAdmissionToProcedure ~ Indikasjon ,
+        data = Subacute ,
+        xlab = "Indikasjon for Procedure" ,
+        ylab = "Days" ,
+        ylim = c(0,7))
+
+points(formula = jitter(DaysFromPCIcenterAdmissionToProcedure) ~ jitter(
+           x = as.numeric(Indikasjon) ,
+           amount = 0.03) ,
+       data = Subacute ,
+       pch = 16 ,
+       col = "#1a1a1a11")
+       
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Indikasjon (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Indikasjon}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_PCI_Center_to_Procedure_by_Indikasjon.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromPCIcenterAdmissionToProcedure ,
+           group = Indikasjon ,
+           colour = Indikasjon))+
+    geom_density(mapping = aes(fill = Indikasjon) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute Patients by Age Group}
+
+% DaysFromSymptomToProcedure
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower50 = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$AgeGroup6 == "<50" ]) ,
+    Age50to59 = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$AgeGroup6 == "50-59" ]) ,
+    Age60to69 = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$AgeGroup6 == "60-69" ]) ,
+    Age70to79 = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$AgeGroup6 == "70-79" ]) ,
+    Age80to84 = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$AgeGroup6 == "80-84" ]) ,
+    Age85plus = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$AgeGroup6 == "85+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+
+
+% DaysFromSymptomToProcedure
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_Age_Group.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ AgeGroup3 ,
+        data = Subacute ,
+        xlab = "Age" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+points(formula = jitter(DaysFromSymptomToProcedure) ~ jitter(
+           x = as.numeric(AgeGroup3) ,
+           amount = 0.03) ,
+       data = Subacute ,
+       pch = 16 ,
+       col = "#1a1a1a11")
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_Age_Group.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        Subacute$DaysFromSymptomToPCIcenterAdmission[ Subacute$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        Subacute$DaysFromSymptomToPCIcenterAdmission[ Subacute$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        Subacute$DaysFromSymptomToPCIcenterAdmission[ Subacute$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to PCIcenterAdmission by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Age_Group.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToPCIcenterAdmission ~ AgeGroup3 ,
+        data = Subacute ,
+        xlab = "Age" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+points(formula = jitter(DaysFromSymptomToPCIcenterAdmission) ~ jitter(
+           x = as.numeric(AgeGroup3) ,
+           amount = 0.03) ,
+       data = Subacute ,
+       pch = 16 ,
+       col = "#1a1a1a11")
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Age_Group.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromSymptomToPCIcenterAdmission ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        Subacute$DaysFromSymptomToIndexAdmission[ Subacute$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        Subacute$DaysFromSymptomToIndexAdmission[ Subacute$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        Subacute$DaysFromSymptomToIndexAdmission[ Subacute$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to IndexAdmission by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Age_Group.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToIndexAdmission ~ AgeGroup3 ,
+        data = Subacute ,
+        xlab = "Age" ,
+        ylab = "Days" ,
+        ylim = c(0,2))
+
+points(formula = jitter(DaysFromSymptomToIndexAdmission) ~ jitter(
+           x = as.numeric(AgeGroup3) ,
+           amount = 0.03) ,
+       data = Subacute ,
+       pch = 16 ,
+       col = "#1a1a1a11")
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Age_Group.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromSymptomToIndexAdmission ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower50 = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$AgeGroup6 == "<50" ]) ,
+    Age50to59 = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$AgeGroup6 == "50-59" ]) ,
+    Age60to69 = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$AgeGroup6 == "60-69" ]) ,
+    Age70to79 = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$AgeGroup6 == "70-79" ]) ,
+    Age80to84 = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$AgeGroup6 == "80-84" ]) ,
+    Age85plus = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$AgeGroup6 == "85+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Index_Admission_to_Procedure_by_Age_Group.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromIndexAdmissionToProcedure ~ AgeGroup3 ,
+        data = Subacute ,
+        xlab = "Age" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+points(formula = jitter(DaysFromIndexAdmissionToProcedure) ~ jitter(
+           x = as.numeric(AgeGroup3) ,
+           amount = 0.03) ,
+       data = Subacute ,
+       pch = 16 ,
+       col = "#1a1a1a11")
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Index_Admission_to_Procedure_by_Age_Group.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        Subacute$DaysFromPCIcenterAdmissionToProcedure[ Subacute$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        Subacute$DaysFromPCIcenterAdmissionToProcedure[ Subacute$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        Subacute$DaysFromPCIcenterAdmissionToProcedure[ Subacute$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from PCI Center Admission to Procedure by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_PCI_Center_Admission_to_Procedure_by_Age_Group.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromPCIcenterAdmissionToProcedure ~ AgeGroup3 ,
+        data = Subacute ,
+        xlab = "Age" ,
+        ylab = "Days" ,
+        ylim = c(0,7))
+
+points(formula = jitter(DaysFromPCIcenterAdmissionToProcedure) ~ jitter(
+           x = as.numeric(AgeGroup3) ,
+           amount = 0.03) ,
+       data = Subacute ,
+       pch = 16 ,
+       col = "#1a1a1a11")
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_PCI_Center_Admission_to_Procedure_by_Age_Group.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromPCIcenterAdmissionToProcedure ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute Patients by Admission Type (directly/referred)}
+
+
+\begin{figure}
+  \centering
+  \caption{Quantiles of Date Differences from Index Admission to Procedure over Time by Admission Type for Subacute UAP/NSTEMI patients\\
+  The lower through upper lines denote the 25th, 50th and 75th percentile respectively}
+  \label{GAM: Date Differences from Index Admission to Procedure over Time by Admission Type UAP+NSTEMI}
+<<echo=FALSE , results = tex>>=
+file = "img/GAM_index_admission_to_Procedure_over_time_by_admission_type_UAP_NSTEMI.pdf"
+pdf(file , width = 6 , height = 8)
+
+op <- par(mfrow = c(2,1))
+          
+# TimeGAM(x = "DaysFromIndexAdmissionToProcedure" ,
+#         data = subset(
+#             x = Subacute ,
+#             subset = AdmissionType == "Directly") ,
+#         ymax = 14 ,
+#         lambda = 0.8 )
+
+TimeGAM(x = "DaysFromIndexAdmissionToProcedure" ,
+        data = subset(
+            x = Subacute ,
+            subset = AdmissionType == "Referred") ,
+        ymax = 14 ,
+        lambda = 0.8 )
+
+par(op)
+          
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+% DaysFromSymptomToProcedure
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$AdmissionType == "Referred" ]) ,
+    Directly  = describe(
+        Subacute$DaysFromSymptomToProcedure[ Subacute$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_Admission_Type.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ AdmissionType ,
+        data = Subacute ,
+        xlab = "Admission type" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+points(formula = jitter(DaysFromSymptomToProcedure) ~ jitter(
+           x = as.numeric(AdmissionType) ,
+           amount = 0.03) ,
+       data = Subacute ,
+       pch = 16 ,
+       col = "#1a1a1a11")
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_Admission_Type.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred = describe(
+        Subacute$DaysFromSymptomToPCIcenterAdmission[ Subacute$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        Subacute$DaysFromSymptomToPCIcenterAdmission[ Subacute$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to PCIcenterAdmission by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToPCIcenterAdmission ~ AdmissionType ,
+        data = Subacute ,
+        xlab = "Admission type" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+points(formula = jitter(DaysFromSymptomToPCIcenterAdmission) ~ jitter(
+           x = as.numeric(AdmissionType) ,
+           amount = 0.03) ,
+       data = Subacute ,
+       pch = 16 ,
+       col = "#1a1a1a11")
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromSymptomToPCIcenterAdmission ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        Subacute$DaysFromSymptomToIndexAdmission[ Subacute$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        Subacute$DaysFromSymptomToIndexAdmission[ Subacute$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to IndexAdmission by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToIndexAdmission ~ AdmissionType ,
+        data = Subacute ,
+        xlab = "Admission type" ,
+        ylab = "Days" ,
+        ylim = c(0,2))
+
+points(formula = jitter(DaysFromSymptomToIndexAdmission) ~ jitter(
+           x = as.numeric(AdmissionType) ,
+           amount = 0.03) ,
+       data = Subacute ,
+       pch = 16 ,
+       col = "#1a1a1a11")
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromSymptomToIndexAdmission ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        Subacute$DaysFromIndexAdmissionToProcedure[ Subacute$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Index_Admission_to_Procedure_by_Admission_Type.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromIndexAdmissionToProcedure ~ AdmissionType ,
+        data = Subacute ,
+        xlab = "Admission type" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+points(formula = jitter(DaysFromIndexAdmissionToProcedure) ~ jitter(
+           x = as.numeric(AdmissionType) ,
+           amount = 0.03) ,
+       data = Subacute ,
+       pch = 16 ,
+       col = "#1a1a1a11")
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Index_Admission_to_Procedure_by_Admission_Type.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        Subacute$DaysFromPCIcenterAdmissionToProcedure[ Subacute$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        Subacute$DaysFromPCIcenterAdmissionToProcedure[ Subacute$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from PCI Center Admission to Procedure by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Time_from_PCI_Center_Admission_to_Procedure_by_Admission_Type.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromPCIcenterAdmissionToProcedure ~ AdmissionType ,
+        data = Subacute ,
+        xlab = "Admission type" ,
+        ylab = "Days" ,
+        ylim = c(0,10))
+
+points(formula = jitter(DaysFromPCIcenterAdmissionToProcedure) ~ jitter(
+           x = as.numeric(AdmissionType) ,
+           amount = 0.03) ,
+       data = Subacute ,
+       pch = 16 ,
+       col = "#1a1a1a11")
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_PCI_Center_to_Procedure_by_Admission_Type.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = Subacute ,
+       aes(x = DaysFromPCIcenterAdmissionToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute NSTEMI Patients by Left Ventricular Function}
+% c("<30","30-49","50+")
+
+% DaysFromSymptomToProcedure
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        SubacuteNSTEMI$DaysFromSymptomToProcedure[
+                                            SubacuteNSTEMI$EFgroup == "<30"  &
+                                            !is.na(SubacuteNSTEMI$EFgroup) ]) ,
+    EF30to49 = describe(
+        SubacuteNSTEMI$DaysFromSymptomToProcedure[
+                                            SubacuteNSTEMI$EFgroup == "30-49"  &
+                                            !is.na(SubacuteNSTEMI$EFgroup) ]) ,
+    EF50plus = describe(
+        SubacuteNSTEMI$DaysFromSymptomToProcedure[
+                                            SubacuteNSTEMI$EFgroup == "50+"  &
+                                            !is.na(SubacuteNSTEMI$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_EF_group_NSTEMIonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ EFgroup ,
+        data = SubacuteNSTEMI ,
+        xlab = "EFgroup" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_EF_group_NSTEMIonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteNSTEMI ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        SubacuteNSTEMI$DaysFromSymptomToPCIcenterAdmission[
+                                                     SubacuteNSTEMI$EFgroup == "<30"  &
+                                                     !is.na(SubacuteNSTEMI$EFgroup) ]) ,
+    EF30to49 = describe(
+        SubacuteNSTEMI$DaysFromSymptomToPCIcenterAdmission[
+                                                     SubacuteNSTEMI$EFgroup == "30-49"  &
+                                                     !is.na(SubacuteNSTEMI$EFgroup) ]) ,
+    EF50plus = describe(
+        SubacuteNSTEMI$DaysFromSymptomToPCIcenterAdmission[
+                                                     SubacuteNSTEMI$EFgroup == "50+"  &
+                                                     !is.na(SubacuteNSTEMI$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to PCIcenterAdmission by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_EF_group_NSTEMIonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToPCIcenterAdmission ~ EFgroup ,
+        data = SubacuteNSTEMI ,
+        xlab = "EFgroup" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_EF_group_NSTEMIonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteNSTEMI ,
+       aes(x = DaysFromSymptomToPCIcenterAdmission ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        SubacuteNSTEMI$DaysFromSymptomToIndexAdmission[
+                                                 SubacuteNSTEMI$EFgroup == "<30"  &
+                                                 !is.na(SubacuteNSTEMI$EFgroup) ]) ,
+    EF30to49 = describe(
+        SubacuteNSTEMI$DaysFromSymptomToIndexAdmission[
+                                                 SubacuteNSTEMI$EFgroup == "30-49"  &
+                                                 !is.na(SubacuteNSTEMI$EFgroup) ]) ,
+    EF50plus = describe(
+        SubacuteNSTEMI$DaysFromSymptomToIndexAdmission[
+                                                 SubacuteNSTEMI$EFgroup == "50+"  &
+                                                 !is.na(SubacuteNSTEMI$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to IndexAdmission by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_IndexAdmission_by_EF_group_NSTEMIonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToIndexAdmission ~ EFgroup ,
+        data = SubacuteNSTEMI ,
+        xlab = "EFgroup" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_IndexAdmission_by_EF_group_NSTEMIonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteNSTEMI ,
+       aes(x = DaysFromSymptomToIndexAdmission ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        SubacuteNSTEMI$DaysFromIndexAdmissionToProcedure[
+                                                   SubacuteNSTEMI$EFgroup == "<30"  &
+                                                   !is.na(SubacuteNSTEMI$EFgroup) ]) ,
+    EF30to49 = describe(
+        SubacuteNSTEMI$DaysFromIndexAdmissionToProcedure[
+                                                   SubacuteNSTEMI$EFgroup == "30-49"  &
+                                                   !is.na(SubacuteNSTEMI$EFgroup) ]) ,
+    EF50plus = describe(
+        SubacuteNSTEMI$DaysFromIndexAdmissionToProcedure[
+                                                   SubacuteNSTEMI$EFgroup == "50+"  &
+                                                   !is.na(SubacuteNSTEMI$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Index_Admission_to_Procedure_by_EF_group_NSTEMIonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromIndexAdmissionToProcedure ~ EFgroup ,
+        data = SubacuteNSTEMI ,
+        xlab = "EFgroup" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Index_Admission_to_Procedure_by_EF_group_NSTEMIonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteNSTEMI ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        SubacuteNSTEMI$DaysFromPCIcenterAdmissionToProcedure[
+                                                       SubacuteNSTEMI$EFgroup == "<30" &
+                                                       !is.na(SubacuteNSTEMI$EFgroup) ]) ,
+    EF30to49 = describe(
+        SubacuteNSTEMI$DaysFromPCIcenterAdmissionToProcedure[
+                                                       SubacuteNSTEMI$EFgroup == "30-49" &
+                                                       !is.na(SubacuteNSTEMI$EFgroup) ]) ,
+    EF50plus = describe(
+        SubacuteNSTEMI$DaysFromPCIcenterAdmissionToProcedure[
+                                                       SubacuteNSTEMI$EFgroup == "50+" &
+                                                       !is.na(SubacuteNSTEMI$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from PCI Center Admission to Procedure by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_PCI_Center_Admission_to_Procedure_by_EF_group_NSTEMIonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromPCIcenterAdmissionToProcedure ~ EFgroup ,
+        data = SubacuteNSTEMI ,
+        xlab = "EFgroup" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_PCI_Center_Admission_to_Procedure_by_EF_group_NSTEMIonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteNSTEMI ,
+       aes(x = DaysFromPCIcenterAdmissionToProcedure ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+
+
+\clearpage
+\section{Date Differences in Subacute UAP Patients}
+
+This section repeats the figures and tables for the previous section for UAP patients only, i.e. all five endpoint time spans compared between age- and EF-groups.
+
+%% UAP only
+\subsection{Date Differences for Subacute UAP Patients by Age Group}
+
+% DaysFromSymptomToProcedure
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        SubacuteUAP$DaysFromSymptomToProcedure[ SubacuteUAP$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        SubacuteUAP$DaysFromSymptomToProcedure[ SubacuteUAP$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        SubacuteUAP$DaysFromSymptomToProcedure[ SubacuteUAP$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_Age_Group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ AgeGroup3 ,
+        data = SubacuteUAP ,
+        xlab = "AgeGroup3" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_Age_Group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        SubacuteUAP$DaysFromSymptomToPCIcenterAdmission[ SubacuteUAP$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        SubacuteUAP$DaysFromSymptomToPCIcenterAdmission[ SubacuteUAP$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        SubacuteUAP$DaysFromSymptomToPCIcenterAdmission[ SubacuteUAP$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to PCIcenterAdmission by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Age_Group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToPCIcenterAdmission ~ AgeGroup3 , data = SubacuteUAP , xlab = "AgeGroup3" , ylab = "Days" , ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Age_Group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromSymptomToPCIcenterAdmission ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        SubacuteUAP$DaysFromSymptomToIndexAdmission[ SubacuteUAP$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        SubacuteUAP$DaysFromSymptomToIndexAdmission[ SubacuteUAP$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        SubacuteUAP$DaysFromSymptomToIndexAdmission[ SubacuteUAP$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to IndexAdmission by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Age_Group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToIndexAdmission ~ AgeGroup3 , data = SubacuteUAP , xlab = "AgeGroup3" , ylab = "Days" , ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Age_Group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromSymptomToIndexAdmission ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        SubacuteUAP$DaysFromIndexAdmissionToProcedure[ SubacuteUAP$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        SubacuteUAP$DaysFromIndexAdmissionToProcedure[ SubacuteUAP$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        SubacuteUAP$DaysFromIndexAdmissionToProcedure[ SubacuteUAP$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Index_Admission_to_Procedure_by_Age_Group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromIndexAdmissionToProcedure ~ AgeGroup3 , data = SubacuteUAP , xlab = "AgeGroup3" , ylab = "Days" , ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Index_Admission_to_Procedure_by_Age_Group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        SubacuteUAP$DaysFromPCIcenterAdmissionToProcedure[ SubacuteUAP$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        SubacuteUAP$DaysFromPCIcenterAdmissionToProcedure[ SubacuteUAP$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        SubacuteUAP$DaysFromPCIcenterAdmissionToProcedure[ SubacuteUAP$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from PCI Center Admission to Procedure by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_PCI_Center_Admission_to_Procedure_by_Age_Group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromPCIcenterAdmissionToProcedure ~ AgeGroup3 , data = SubacuteUAP , xlab = "AgeGroup3" , ylab = "Days" , ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_PCI_Center_Admission_to_Procedure_by_Age_Group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromPCIcenterAdmissionToProcedure ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute UAP Patients by Admission Type (directly/referred)}
+
+% DaysFromSymptomToProcedure
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        SubacuteUAP$DaysFromSymptomToProcedure[ SubacuteUAP$AdmissionType == "Referred" ]) ,
+    Directly  = describe(
+        SubacuteUAP$DaysFromSymptomToProcedure[ SubacuteUAP$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_Admission_Type_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ AdmissionType , data = SubacuteUAP , xlab = "AdmissionType" , ylab = "Days" , ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_Admission_Type_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred = describe(
+        SubacuteUAP$DaysFromSymptomToPCIcenterAdmission[ SubacuteUAP$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        SubacuteUAP$DaysFromSymptomToPCIcenterAdmission[ SubacuteUAP$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to PCIcenterAdmission by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToPCIcenterAdmission ~ AdmissionType , data = SubacuteUAP , xlab = "AdmissionType" , ylab = "Days" , ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromSymptomToPCIcenterAdmission ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        SubacuteUAP$DaysFromSymptomToIndexAdmission[ SubacuteUAP$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        SubacuteUAP$DaysFromSymptomToIndexAdmission[ SubacuteUAP$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to IndexAdmission by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToIndexAdmission ~ AdmissionType , data = SubacuteUAP , xlab = "AdmissionType" , ylab = "Days" , ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromSymptomToIndexAdmission ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        SubacuteUAP$DaysFromIndexAdmissionToProcedure[ SubacuteUAP$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        SubacuteUAP$DaysFromIndexAdmissionToProcedure[ SubacuteUAP$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Index_Admission_to_Procedure_by_Admission_Type_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromIndexAdmissionToProcedure ~ AdmissionType , data = SubacuteUAP , xlab = "AdmissionType" , ylab = "Days" , ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Index_Admission_to_Procedure_by_Admission_Type_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        SubacuteUAP$DaysFromPCIcenterAdmissionToProcedure[ SubacuteUAP$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        SubacuteUAP$DaysFromPCIcenterAdmissionToProcedure[ SubacuteUAP$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from PCI Center Admission to Procedure by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Time_from_PCI_Center_Admission_to_Procedure_by_Admission_Type_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromPCIcenterAdmissionToProcedure ~ AdmissionType , data = SubacuteUAP , xlab = "AdmissionType" , ylab = "Days" , ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_PCI_Center_to_Procedure_by_Admission_Type_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromPCIcenterAdmissionToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for Subacute UAP Patients by Left Ventricular Function}
+% c("<30","30-49","50+")
+
+% DaysFromSymptomToProcedure
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        SubacuteUAP$DaysFromSymptomToProcedure[
+                                            SubacuteUAP$EFgroup == "<30"  &
+                                            !is.na(SubacuteUAP$EFgroup) ]) ,
+    EF30to49 = describe(
+        SubacuteUAP$DaysFromSymptomToProcedure[
+                                            SubacuteUAP$EFgroup == "30-49"  &
+                                            !is.na(SubacuteUAP$EFgroup) ]) ,
+    EF50plus = describe(
+        SubacuteUAP$DaysFromSymptomToProcedure[
+                                            SubacuteUAP$EFgroup == "50+"  &
+                                            !is.na(SubacuteUAP$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_EF_group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ EFgroup , data = SubacuteUAP , xlab = "EFgroup" , ylab = "Days" , ylim = c(0,15))
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_EF_group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        SubacuteUAP$DaysFromSymptomToPCIcenterAdmission[
+                                                     SubacuteUAP$EFgroup == "<30"  &
+                                                     !is.na(SubacuteUAP$EFgroup) ]) ,
+    EF30to49 = describe(
+        SubacuteUAP$DaysFromSymptomToPCIcenterAdmission[
+                                                     SubacuteUAP$EFgroup == "30-49"  &
+                                                     !is.na(SubacuteUAP$EFgroup) ]) ,
+    EF50plus = describe(
+        SubacuteUAP$DaysFromSymptomToPCIcenterAdmission[
+                                                     SubacuteUAP$EFgroup == "50+"  &
+                                                     !is.na(SubacuteUAP$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to PCIcenterAdmission by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_EF_group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToPCIcenterAdmission ~ EFgroup , data = SubacuteUAP , xlab = "EFgroup" , ylab = "Days" , ylim = c(0,15))
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_EF_group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromSymptomToPCIcenterAdmission ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        SubacuteUAP$DaysFromSymptomToIndexAdmission[
+                                                 SubacuteUAP$EFgroup == "<30"  &
+                                                 !is.na(SubacuteUAP$EFgroup) ]) ,
+    EF30to49 = describe(
+        SubacuteUAP$DaysFromSymptomToIndexAdmission[
+                                                 SubacuteUAP$EFgroup == "30-49"  &
+                                                 !is.na(SubacuteUAP$EFgroup) ]) ,
+    EF50plus = describe(
+        SubacuteUAP$DaysFromSymptomToIndexAdmission[
+                                                 SubacuteUAP$EFgroup == "50+"  &
+                                                 !is.na(SubacuteUAP$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to IndexAdmission by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_IndexAdmission_by_EF_group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToIndexAdmission ~ EFgroup , data = SubacuteUAP , xlab = "EFgroup" , ylab = "Days" , ylim = c(0,15))
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_IndexAdmission_by_EF_group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromSymptomToIndexAdmission ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        SubacuteUAP$DaysFromIndexAdmissionToProcedure[
+                                                   SubacuteUAP$EFgroup == "<30"  &
+                                                   !is.na(SubacuteUAP$EFgroup) ]) ,
+    EF30to49 = describe(
+        SubacuteUAP$DaysFromIndexAdmissionToProcedure[
+                                                   SubacuteUAP$EFgroup == "30-49"  &
+                                                   !is.na(SubacuteUAP$EFgroup) ]) ,
+    EF50plus = describe(
+        SubacuteUAP$DaysFromIndexAdmissionToProcedure[
+                                                   SubacuteUAP$EFgroup == "50+"  &
+                                                   !is.na(SubacuteUAP$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Index_Admission_to_Procedure_by_EF_group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromIndexAdmissionToProcedure ~ EFgroup , data = SubacuteUAP , xlab = "EFgroup" , ylab = "Days" , ylim = c(0,15))
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Index_Admission_to_Procedure_by_EF_group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        SubacuteUAP$DaysFromPCIcenterAdmissionToProcedure[
+                                                       SubacuteUAP$EFgroup == "<30" &
+                                                       !is.na(SubacuteUAP$EFgroup) ]) ,
+    EF30to49 = describe(
+        SubacuteUAP$DaysFromPCIcenterAdmissionToProcedure[
+                                                       SubacuteUAP$EFgroup == "30-49" &
+                                                       !is.na(SubacuteUAP$EFgroup) ]) ,
+    EF50plus = describe(
+        SubacuteUAP$DaysFromPCIcenterAdmissionToProcedure[
+                                                       SubacuteUAP$EFgroup == "50+" &
+                                                       !is.na(SubacuteUAP$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from PCI Center Admission to Procedure by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_PCI_Center_Admission_to_Procedure_by_EF_group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromPCIcenterAdmissionToProcedure ~ EFgroup , data = SubacuteUAP , xlab = "EFgroup" , ylab = "Days" , ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_PCI_Center_Admission_to_Procedure_by_EF_group_UAPonly.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = SubacuteUAP ,
+       aes(x = DaysFromPCIcenterAdmissionToProcedure ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+%%%% all NSTEMI patients both acute and sub-acute
+\clearpage
+\section{Date Differences in NSTEMI (acute+sub-acute) Patients}
+
+This section repeats the figures and tables for the previous section for NSTEMI patients, i.e. all five endpoint time spans compared between age-groups and both acute and sub-acute phase admissions.
+
+
+\subsection{Date Differences for NSTEMI (acute+sub-acute) Patients by Age Group}
+
+% DaysFromSymptomToProcedure
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        NSTEMI$DaysFromSymptomToProcedure[ NSTEMI$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        NSTEMI$DaysFromSymptomToProcedure[ NSTEMI$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        NSTEMI$DaysFromSymptomToProcedure[ NSTEMI$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_Age_Group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ AgeGroup3 ,
+        data = NSTEMI ,
+        xlab = "AgeGroup3" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_Age_Group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[ NSTEMI$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[ NSTEMI$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[ NSTEMI$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to PCIcenterAdmission by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Age_Group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToPCIcenterAdmission ~ AgeGroup3 ,
+        data = NSTEMI ,
+        xlab = "AgeGroup3" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Age_Group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToPCIcenterAdmission ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[ NSTEMI$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[ NSTEMI$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[ NSTEMI$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to IndexAdmission by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Age_Group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToIndexAdmission ~ AgeGroup3 ,
+        data = NSTEMI ,
+        xlab = "AgeGroup3" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Age Group (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Age_Group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToIndexAdmission ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower50 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AgeGroup6 == "<50" ]) ,
+    Age50to59 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AgeGroup6 == "50-59" ]) ,
+    Age60to69 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AgeGroup6 == "60-69" ]) ,
+    Age70to79 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AgeGroup6 == "70-79" ]) ,
+    Age80to84 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AgeGroup6 == "80-84" ]) ,
+    Age85plus = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AgeGroup6 == "85+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Age Group (NSTEMI)") ,
+       booktabs = TRUE)
+@ 
+
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Age Group (NSTEMI)") ,
+       booktabs = TRUE)
+@ 
+
+Ist the increasing time trend over age groups significant. Fit a linear qunatile regression for 1Q, median and 3Q with continuous age. The model is adjusted for urgency (acute/subacute).
+<<echo = TRUE , eval = TRUE>>=
+
+model <- rq(
+    formula = DaysFromIndexAdmissionToProcedure ~ Age + HendelsesType ,
+    data = NSTEMI ,
+    na.action = na.exclude ,
+    tau = 1:3/4)
+
+summary(
+    object = model ,
+    se = "boot")
+
+@ 
+For the 25\% earlist patients, age does not matter. If they are acute, they are treated the same day, no matter age; if subacute they are treated after latest 2.84 days, no matter age.
+
+The median is both dependent on acute/subacute and age, ca. half a day for each 10 years in age increase and 2.9 days more for subacute patients.
+
+Those 25\% who have the longest time from index admission to procedure (Q3) take 0.06 days longer for each year increase in age.
+
+Those are linear trends, but around the age of 70 the trend is not so clear (see the GAM plot in figure \ref{GAMplot: Median Date Differences from Index Admission to Procedure by Age allNSTEMI}).
+
+
+\begin{figure}
+  \centering
+  \caption{Median Date Differences from Index Admission to Procedure by Age in subacute NSTEMI patients}
+  \label{GAMplot: Median Date Differences from Index Admission to Procedure by Age allNSTEMI}
+<<echo=FALSE , results = tex>>=
+file = "img/GAMplot_Index_Admission_to_Procedure_by_Age_and_HendelsesType_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+tmp <- na.exclude(
+    subset(
+        x = NSTEMI ,
+        subset = (Age>40)&(Age<90) ,
+        select = c("DaysFromIndexAdmissionToProcedure","Age","HendelsesType")))
+
+op <- par(
+    mfcol = c(1,1) , 
+    las = 1 )
+
+plot(
+    rqss(DaysFromIndexAdmissionToProcedure ~ qss( Age , lambda = 8) ,
+         data = subset(
+             x = tmp ,
+             subset = HendelsesType == "Subakutt")) ,
+    main = "Subacute\n\n" ,
+    rug = TRUE ,
+    jit = TRUE ,
+    bands = TRUE)
+
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Index_Admission_to_Procedure_by_Age_Group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromIndexAdmissionToProcedure ~ AgeGroup3 ,
+        data = NSTEMI ,
+        xlab = "AgeGroup3" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Index_Admission_to_Procedure_by_Age_Group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    AgeLower65 = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[ NSTEMI$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[ NSTEMI$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[ NSTEMI$AgeGroup3 == "75+" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from PCI Center Admission to Procedure by Age Group") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Age Group (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_PCI_Center_Admission_to_Procedure_by_Age_Group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromPCIcenterAdmissionToProcedure ~ AgeGroup3 ,
+        data = NSTEMI ,
+        xlab = "AgeGroup3" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Age Group (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Age Group}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_PCI_Center_Admission_to_Procedure_by_Age_Group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromPCIcenterAdmissionToProcedure ,
+           group = AgeGroup3 ,
+           colour = AgeGroup3))+
+    geom_density(mapping = aes(fill = AgeGroup3) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for NSTEMI (acute+sub-acute) Patients by Admission Type (directly/referred)}
+
+% DaysFromSymptomToProcedure
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        NSTEMI$DaysFromSymptomToProcedure[ NSTEMI$AdmissionType == "Referred" ]) ,
+    Directly  = describe(
+        NSTEMI$DaysFromSymptomToProcedure[ NSTEMI$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ AdmissionType ,
+        data = NSTEMI ,
+        xlab = "AdmissionType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[ NSTEMI$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[ NSTEMI$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to PCIcenterAdmission by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToPCIcenterAdmission ~ AdmissionType ,
+        data = NSTEMI ,
+        xlab = "AdmissionType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToPCIcenterAdmission ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[ NSTEMI$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[ NSTEMI$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to IndexAdmission by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToIndexAdmission ~ AdmissionType , data = NSTEMI , xlab = "AdmissionType" , ylab = "Days" , ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_IndexAdmission_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToIndexAdmission ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Index_Admission_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromIndexAdmissionToProcedure ~ AdmissionType ,
+        data = NSTEMI ,
+        xlab = "AdmissionType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Index_Admission_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[ NSTEMI$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[ NSTEMI$AdmissionType == "Directly" ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from PCI Center Admission to Procedure by Admission Type") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Time_from_PCI_Center_Admission_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromPCIcenterAdmissionToProcedure ~ AdmissionType ,
+        data = NSTEMI ,
+        xlab = "AdmissionType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Admission Type (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Admission Type}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_PCI_Center_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromPCIcenterAdmissionToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+
+
+
+\clearpage
+\subsection{Date Differences for NSTEMI (acute+sub-acute) Patients by Left Ventricular Function}
+% c("<30","30-49","50+")
+
+% DaysFromSymptomToProcedure
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        NSTEMI$DaysFromSymptomToProcedure[
+                                            NSTEMI$EFgroup == "<30"  &
+                                            !is.na(NSTEMI$EFgroup) ]) ,
+    EF30to49 = describe(
+        NSTEMI$DaysFromSymptomToProcedure[
+                                            NSTEMI$EFgroup == "30-49"  &
+                                            !is.na(NSTEMI$EFgroup) ]) ,
+    EF50plus = describe(
+        NSTEMI$DaysFromSymptomToProcedure[
+                                            NSTEMI$EFgroup == "50+"  &
+                                            !is.na(NSTEMI$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_EF_group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ EFgroup ,
+        data = NSTEMI ,
+        xlab = "EFgroup" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_EF_group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[
+                                                     NSTEMI$EFgroup == "<30"  &
+                                                     !is.na(NSTEMI$EFgroup) ]) ,
+    EF30to49 = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[
+                                                     NSTEMI$EFgroup == "30-49"  &
+                                                     !is.na(NSTEMI$EFgroup) ]) ,
+    EF50plus = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[
+                                                     NSTEMI$EFgroup == "50+"  &
+                                                     !is.na(NSTEMI$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to PCIcenterAdmission by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_EF_group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToPCIcenterAdmission ~ EFgroup ,
+        data = NSTEMI ,
+        xlab = "EFgroup" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_EF_group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToPCIcenterAdmission ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[
+                                                 NSTEMI$EFgroup == "<30"  &
+                                                 !is.na(NSTEMI$EFgroup) ]) ,
+    EF30to49 = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[
+                                                 NSTEMI$EFgroup == "30-49"  &
+                                                 !is.na(NSTEMI$EFgroup) ]) ,
+    EF50plus = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[
+                                                 NSTEMI$EFgroup == "50+"  &
+                                                 !is.na(NSTEMI$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to IndexAdmission by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_IndexAdmission_by_EF_group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToIndexAdmission ~ EFgroup ,
+        data = NSTEMI ,
+        xlab = "EFgroup" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_IndexAdmission_by_EF_group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToIndexAdmission ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[
+                                                   NSTEMI$EFgroup == "<30"  &
+                                                   !is.na(NSTEMI$EFgroup) ]) ,
+    EF30to49 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[
+                                                   NSTEMI$EFgroup == "30-49"  &
+                                                   !is.na(NSTEMI$EFgroup) ]) ,
+    EF50plus = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[
+                                                   NSTEMI$EFgroup == "50+"  &
+                                                   !is.na(NSTEMI$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Index_Admission_to_Procedure_by_EF_group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromIndexAdmissionToProcedure ~ EFgroup ,
+        data = NSTEMI ,
+        xlab = "EFgroup" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Index_Admission_to_Procedure_by_EF_group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    EFlower30 = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[
+                                                       NSTEMI$EFgroup == "<30" &
+                                                       !is.na(NSTEMI$EFgroup) ]) ,
+    EF30to49 = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[
+                                                       NSTEMI$EFgroup == "30-49" &
+                                                       !is.na(NSTEMI$EFgroup) ]) ,
+    EF50plus = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[
+                                                       NSTEMI$EFgroup == "50+" &
+                                                       !is.na(NSTEMI$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from PCI Center Admission to Procedure by Left Ventricular Function") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Left Ventricular Function (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_PCI_Center_Admission_to_Procedure_by_EF_group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromPCIcenterAdmissionToProcedure ~ EFgroup ,
+        data = NSTEMI ,
+        xlab = "EFgroup" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by Left Ventricular Function (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by Left Ventricular Function}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_PCI_Center_Admission_to_Procedure_by_EF_group_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromPCIcenterAdmissionToProcedure ,
+           group = EFgroup ,
+           colour = EFgroup))+
+    geom_density(mapping = aes(fill = EFgroup) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+%%% hastegrad
+\clearpage
+\subsection{Date Differences for NSTEMI (acute+sub-acute) Patients by HendelsesType}
+
+% DaysFromSymptomToProcedure
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Elective = describe(
+        NSTEMI$DaysFromSymptomToProcedure[
+                                            NSTEMI$HendelsesType == "Elective" &
+                                            !is.na(NSTEMI$HendelsesType) ]) ,
+    Acute = describe(
+        NSTEMI$DaysFromSymptomToProcedure[
+                                            NSTEMI$HendelsesType == "Acute" &
+                                            !is.na(NSTEMI$HendelsesType) ]) ,
+    Subacute = describe(
+        NSTEMI$DaysFromSymptomToProcedure[
+                                            NSTEMI$HendelsesType == "Subacute" &
+                                            !is.na(NSTEMI$HendelsesType) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to Procedure by HendelsesType") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by HendelsesType (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to Procedure by HendelsesType}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_Procedure_by_HendelsesType_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToProcedure ~ HendelsesType ,
+        data = NSTEMI ,
+        xlab = "HendelsesType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to Procedure by HendelsesType (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to Procedure by HendelsesType}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_Procedure_by_HendelsesType_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToProcedure ,
+           group = HendelsesType ,
+           colour = HendelsesType))+
+    geom_density(mapping = aes(fill = HendelsesType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToPCIcenterAdmission"  
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Elective = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[
+                                                     NSTEMI$HendelsesType == "Elective" &
+                                                     !is.na(NSTEMI$HendelsesType) ]) ,
+    Acute = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[
+                                                     NSTEMI$HendelsesType == "Acute" &
+                                                     !is.na(NSTEMI$HendelsesType) ]) ,
+    Subacute = describe(
+        NSTEMI$DaysFromSymptomToPCIcenterAdmission[
+                                                     NSTEMI$HendelsesType == "Subacute" &
+                                                     !is.na(NSTEMI$HendelsesType) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to PCIcenterAdmission by HendelsesType") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by HendelsesType (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to PCIcenterAdmission by HendelsesType}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_PCIcenterAdmission_by_HendelsesType_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToPCIcenterAdmission ~ HendelsesType ,
+        data = NSTEMI ,
+        xlab = "HendelsesType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to PCIcenterAdmission by HendelsesType (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to PCIcenterAdmission by HendelsesType}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_PCIcenterAdmission_by_HendelsesType_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToPCIcenterAdmission ,
+           group = HendelsesType ,
+           colour = HendelsesType))+
+    geom_density(mapping = aes(fill = HendelsesType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromSymptomToIndexAdmission"      
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Elective = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[
+                                            NSTEMI$HendelsesType == "Elective" &
+                                                 !is.na(NSTEMI$HendelsesType) ]) ,
+    Acute = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[
+                                            NSTEMI$HendelsesType == "Acute" &
+                                                 !is.na(NSTEMI$HendelsesType) ]) ,
+    Subacute = describe(
+        NSTEMI$DaysFromSymptomToIndexAdmission[
+                                            NSTEMI$HendelsesType == "Subacute" &
+                                                 !is.na(NSTEMI$HendelsesType) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Symptom Onset to IndexAdmission by HendelsesType") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by HendelsesType (Boxplot)}
+  \label{Boxplot: Date Differences from Symptom Onset to IndexAdmission by HendelsesType}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Symptom_Onset_to_IndexAdmission_by_HendelsesType_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromSymptomToIndexAdmission ~ HendelsesType ,
+        data = NSTEMI ,
+        xlab = "HendelsesType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Symptom Onset to IndexAdmission by HendelsesType (Densityplot)}
+  \label{Density: Date Differences from Symptom Onset to IndexAdmission by HendelsesType}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Symptom_Onset_to_IndexAdmission_by_HendelsesType_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromSymptomToIndexAdmission ,
+           group = HendelsesType ,
+           colour = HendelsesType))+
+    geom_density(mapping = aes(fill = HendelsesType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\clearpage
+% "DaysFromIndexAdmissionToProcedure"    
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Elective = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[
+                                            NSTEMI$HendelsesType == "Elective" &
+                                                   !is.na(NSTEMI$HendelsesType) ]) ,
+    Acute = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[
+                                            NSTEMI$HendelsesType == "Acute" &
+                                                   !is.na(NSTEMI$HendelsesType) ]) ,
+    Subacute = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[
+                                            NSTEMI$HendelsesType == "Subacute" &
+                                                   !is.na(NSTEMI$HendelsesType) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by HendelsesType") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by HendelsesType (Boxplot)}
+  \label{Boxplot: Date Differences from Index Admission to Procedure by HendelsesType}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_Index_Admission_to_Procedure_by_HendelsesType_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromIndexAdmissionToProcedure ~ HendelsesType ,
+        data = NSTEMI ,
+        xlab = "HendelsesType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from Index Admission to Procedure by HendelsesType (Densityplot)}
+  \label{Density: Date Differences from Index Admission to Procedure by HendelsesType}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_Index_Admission_to_Procedure_by_HendelsesType_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = HendelsesType ,
+           colour = HendelsesType))+
+    geom_density(mapping = aes(fill = HendelsesType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+\clearpage
+% "DaysFromPCIcenterAdmissionToProcedure"
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Elective = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[
+                                                       NSTEMI$HendelsesType == "Elective" &                                    
+                                                       !is.na(NSTEMI$HendelsesType) ]) ,
+    Acute = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[
+                                                       NSTEMI$HendelsesType == "Acute" &
+                                                       !is.na(NSTEMI$HendelsesType) ]) ,
+    Subacute = describe(
+        NSTEMI$DaysFromPCIcenterAdmissionToProcedure[
+                                                       NSTEMI$HendelsesType == "Subacute" &
+                                                       !is.na(NSTEMI$HendelsesType) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from PCI Center Admission to Procedure by HendelsesType") ,
+       booktabs = TRUE)
+@ 
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by HendelsesType (Boxplot)}
+  \label{Boxplot: Date Differences from PCI Center Admission to Procedure by HendelsesType}
+<<echo=FALSE , results = tex>>=
+file = "img/Boxplot_PCI_Center_Admission_to_Procedure_by_HendelsesType_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+boxplot(formula = DaysFromPCIcenterAdmissionToProcedure ~ HendelsesType ,
+        data = NSTEMI ,
+        xlab = "HendelsesType" ,
+        ylab = "Days" ,
+        ylim = c(0,15))
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\begin{figure}
+  \centering
+  \caption{Date Differences from PCI Center Admission to Procedure by HendelsesType (Densityplot)}
+  \label{Density: Date Differences from PCI Center Admission to Procedure by HendelsesType}
+<<echo=FALSE , results = tex>>=
+file = "img/Densityplot_PCI_Center_Admission_to_Procedure_by_HendelsesType_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromPCIcenterAdmissionToProcedure ,
+           group = HendelsesType ,
+           colour = HendelsesType))+
+    geom_density(mapping = aes(fill = HendelsesType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+
+\chapter{Poster}
+
+<<echo = FALSE , results = tex>>=
+SummaryTable <- data.frame(
+    Referred  = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AdmissionType == "Referred" ]) ,
+    Directly = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AdmissionType == "Directly" ]) ,
+    AgeLower65 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AgeGroup3 == "<65" ]) ,
+    Age65to74 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AgeGroup3 == "65-74" ]) ,
+    Age75plus = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[ NSTEMI$AgeGroup3 == "75+" ]) ,
+    EFlower30 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[
+                                                   NSTEMI$EFgroup == "<30"  &
+                                                   !is.na(NSTEMI$EFgroup) ]) ,
+    EF30to49 = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[
+                                                   NSTEMI$EFgroup == "30-49"  &
+                                                   !is.na(NSTEMI$EFgroup) ]) ,
+    EF50plus = describe(
+        NSTEMI$DaysFromIndexAdmissionToProcedure[
+                                                   NSTEMI$EFgroup == "50+"  &
+                                                   !is.na(NSTEMI$EFgroup) ]))
+
+print( xtable(
+               x = SummaryTable ,
+               caption = "Number of Days from Index Admission to Procedure by Admission Type, Age and Left Ventricular Function in NSTEMI patients") ,
+       booktabs = TRUE)
+
+write.csv(x = SummaryTable ,
+            file = "Poster_Table_Number_of_Days_from_Index_Admission_to_Procedure.csv" ,
+            row.names = TRUE)
+@ 
+
+
+\begin{figure}
+  \centering
+  \caption{Median Time from Index Admission to Procedure by Age in NSTEMI patients}
+  \label{GAMplot: Median Date Differences from Index Admission to Procedure by Age allNSTEMI}
+<<echo=FALSE , results = tex>>=
+file = "img/Poster_GAMplot_Index_Admission_to_Procedure_by_Age_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+dat0 <- na.exclude(
+    subset(
+        x = NSTEMI ,
+        subset = (Age>40)&(Age<90) ,
+        select = c("DaysFromIndexAdmissionToProcedure","Age","HendelsesType")))
+
+rqss0 <- rqss(
+    formula = DaysFromIndexAdmissionToProcedure ~ qss( Age , lambda = 5) ,
+    data = dat0 )
+
+op <- par(
+    mfcol = c(1,1) , 
+    las = 1 )
+
+plot(
+    rqss0 ,
+    bty = "n" ,
+    rug = FALSE ,
+    bands = TRUE)
+
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+
+
+\begin{figure}
+  \centering
+  \caption{Time from Index Admission to Procedure by Admission Type in NSTEMI patients treated at Haukeland University Hosptial Bergen in 2014}
+  \label{Density: Date Differences from Index Admission to Procedure by Admission Type allNSTEMI}
+<<echo=FALSE , results = tex>>=
+file = "img/Poster_Densityplot_Index_Admission_to_Procedure_by_Admission_Type_allNSTEMI.pdf"
+pdf(file , width = 6 , height = 4)
+
+ggplot(data = NSTEMI ,
+       aes(x = DaysFromIndexAdmissionToProcedure ,
+           group = AdmissionType ,
+           colour = AdmissionType))+
+    geom_density(mapping = aes(fill = AdmissionType) ,
+                 alpha = 0.5 ,
+                 adjust = 2)+
+    scale_x_continuous(name = "Days" ,
+                       limits = c(0,10)) +
+    theme_bw()
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\n", sep="")
+@
+\end{figure}
+
+
+\end{document}
+
+

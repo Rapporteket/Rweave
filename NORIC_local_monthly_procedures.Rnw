@@ -1,0 +1,620 @@
+
+\documentclass[presentation,xcolor=pdftex,dvipsnames,table]{beamer}
+\usetheme{Hannover}
+\usecolortheme{seagull}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english, norsk]{babel}
+\usepackage[absolute,overlay]{textpos}
+\usepackage{xspace}
+\usepackage{booktabs}
+\usepackage{rotating}
+
+\usepackage{Sweave}
+
+
+<<echo = FALSE , results = tex>>=
+library(car)             # recoding variables
+library(xtable)          # LaTeX tables
+library(RColorBrewer)    # intellingent colour palettes
+brew <- function(
+    N = 3 ,
+    alpha = "AA" ) paste(
+        brewer.pal(
+            n = N , 
+            name = if(N<9) "Dark2" else "Set3" ) ,
+        alpha ,
+        sep = "")
+library(yaml)
+
+conf <- yaml.load_file('../dbConfig.yml')
+## reshID <- 2 ## for local testing
+
+printname <- unlist( conf [[paste("noric" , reshID , sep = "")]]["disp"])
+
+cat("\\title{NORIC" , printname , "\\\\Månedsrapport}\n\n")
+cat("\\date{" , date() , "}\n\n")
+@ 
+
+
+<<echo = FALSE , eval = TRUE>>=
+
+library(RMySQL)          # accessing the database
+
+con <- dbConnect( dbDriver("MySQL") ,
+  dbname = unlist( conf[[paste("noric" , reshID , sep = "")]]["name"]) ,
+  host = unlist( conf[[paste("noric" , reshID , sep = "")]]["host"]) ,
+  user = unlist( conf[[paste("noric" , reshID , sep = "")]]["user"]) ,
+  password = unlist( conf[[paste("noric" , reshID , sep = "")]]["pass"]) )
+
+# ensure utf8 encoding
+t <- dbGetQuery( con, "SET NAMES utf8;" )
+
+query <- "
+SELECT
+   M.MCEID, M.PARENT_MCEID, M.INTERVENTION_TYPE, M.MCETYPE,
+   R.INTERDAT, R.JOURTID, R.REGTYP, R.INDIKATION, R.FYND, R.DIATRYCK, R.DIADOP, R.DIAIVUS, R.PRIMBES, R.LABNO , R.STRALDOS , R.ANGIOGRAFOR ,
+   I.HOSP_ADMISSIONDATE, I.TRANSFERREDPATIENT, I.TRANSFERREDFROM, H.NAME AS TRANSFERREDFROMchar, I.REFERRING_HOSP_ADMISSIONDATE, I.KILLIPKLASS, I.SYMPTOM_ONSET_DATE, I.SYMPTOM_ONSET_TIME, I.SYMPTOM_ONSET_MISSING, I.PREHOSPITAL_ECG_DATE, I.PREHOSPITAL_ECG_TIME, I.PREHOSPITAL_ECG_MISSING, I.THROMB_GIVEN_DATE, I.THROMB_GIVEN_TIME, I.ADMISSION_ER_DATE, I.ADMISSION_ER_TIME
+FROM mce M
+   INNER JOIN regangio R ON M.MCEID=R.MCEID
+   INNER JOIN initialcare I ON M.MCEID=I.MCEID
+   LEFT JOIN  hospital H ON I.TRANSFERREDFROM=H.ID
+;"
+dat <- dbGetQuery( con , query )
+con <- dbDisconnect(con)
+con <- dbUnloadDriver(dbDriver("MySQL"))
+
+
+   ## MCETYPE = 1/2/3 -> Hendelsestype 1) Planlagt, 2) Akutt, 3) Subakutt
+dat$Hastegrad <- addNA( factor( addNA(dat$MCETYPE) , exclude = NULL , labels = c('Planlagt','Akutt','Subakutt')))
+
+
+dat$Vakttid <- addNA( factor( dat$JOURTID , labels =  c(
+'Planlagt på dagtid',
+'Akuttilfelle på dagtid',
+'Akutfall på vakttid',
+'Subakuttilfelle på dagtid',
+'Subakuttilfelle på vakttid')))
+
+
+dat$Indikasjon <- recode( dat$INDIKATION ,"
+1='SAP';
+2='UAP';
+3='NSTEMI';
+4:6='STEMI';
+NA=NA;
+else='Annet'
+")
+
+dat$Indikasjon <- addNA( factor( dat$Indikasjon , levels = c(
+'SAP',
+'UAP',
+'NSTEMI',
+'STEMI',
+'Annet')))
+
+
+dat$Regtyp <- recode( dat$REGTYP ,"
+1='Angio';
+2='PCI';
+3='Angio+PCI';
+NA=NA;
+")
+
+dat$Regtyp <- addNA( factor( dat$Regtyp , levels = c(
+'Angio',
+'PCI',
+'Angio+PCI')))
+
+
+dat$PrimaerBeslutning2 <- recode( dat$PRIMBES ,"
+1 = 'Ingen behandling';
+2 = 'Fortsatt medisinsk behandling';
+3 = 'Fortsatt utredning';
+4 = 'Klaffeoperasjon';
+5 = 'ACB-operasjon';
+6 = 'Klaffe- + ACB-operasjon';
+7 = 'PCI + ACB-operasjon';
+8 = 'PCI elektiv';
+9 = 'PCI ad hoc';
+10 = 'Henvisning til annet sykehus';
+11 = 'Annet operativt inngrep';
+NA = NA")
+
+
+dat$PrimaerBeslutning2 <- addNA( factor( dat$PrimaerBeslutning2 , levels = c(
+'Ingen behandling',
+'Fortsatt medisinsk behandling',
+'Fortsatt utredning',
+'Klaffeoperasjon',
+'ACB-operasjon',
+'Klaffe- + ACB-operasjon',
+'PCI+ACB-operasjon',
+'PCI elektiv',
+'PCI ad hoc',
+'Henvisning til annet sykehus',
+'Annet operativt inngrep')))
+
+
+
+dat$PrimaerBeslutning <- recode( dat$PRIMBES ,"
+ 1 = 'Ingen behandling';
+ 2 = 'Fortsatt medisinsk behandling';
+ 3:6 = 'Diskusjon/uavklart';
+ 8  = 'PCI elektiv';
+ 9  = 'PCI ad hoc';
+ NA = NA;
+ c(7,10,11) = 'Annet'
+")
+
+dat$PrimaerBeslutning <- addNA( factor( dat$PrimaerBeslutning , levels = c(
+'Ingen behandling',
+'Fortsatt medisinsk behandling',
+'Diskusjon/uavklart',
+'PCI elektiv',
+'PCI ad hoc',
+'Annet')))
+
+dat$Funn <- recode( dat$FYND , '
+1 = "Normalt/Ateromatose";
+2 = "1-kar ikke HS";
+3 = "2-kar ikke HS";
+4 = "3-kar ikke HS";
+5 = "HS + 1-kar";
+6 = "HS + 2-kar";
+7 = "HS + 3-kar";
+8 = "HS";
+0 = "Ikke konklusiv";
+else = NA')
+dat$Funn <- factor( dat$Funn , exclude = NULL )
+
+
+dat$HenvistFra <- dat$TRANSFERREDFROMchar
+dat$HenvistFra[is.na(dat$HenvistFra)] <- "Direkte"
+ # dirty fix for font code trouble
+ #dat$HenvistFra <- gsub( "\xf8" , "ø" , dat$HenvistFra)
+ #dat$HenvistFra <- gsub( "\xd8" , "Ø" , dat$HenvistFra)
+ #dat$HenvistFra <- gsub( "\xe6" , "æ" , dat$HenvistFra)
+ #dat$HenvistFra <- gsub( "\xc5" , "Å" , dat$HenvistFra)
+ #dat$HenvistFra <- gsub( "\xe5" , "å" , dat$HenvistFra)
+
+dat$DirekteTilPCI <- as.factor( dat$HenvistFra == "Direkte" )
+
+dat$HenvisningsStatus <- factor( x = (dat$HenvistFra == "Direkte") , labels = c("Henvist","Direkte"))
+
+   ### reformat time variables from char to POSIX
+dat$SYMPTOM_ONSET_DATE <- as.Date( dat$SYMPTOM_ONSET_DATE , "%Y-%m-%d")
+dat$REFERRING_HOSP_ADMISSIONDATE[ dat$HenvistFra == "Direkte" ] <- dat$HOSP_ADMISSIONDATE[ dat$HenvistFra == "Direkte" ] ## update admission date for directly admitted
+dat$REFERRING_HOSP_ADMISSIONDATE <- as.Date( dat$REFERRING_HOSP_ADMISSIONDATE , "%Y-%m-%d")
+dat$HOSP_ADMISSIONDATE <- as.Date( dat$HOSP_ADMISSIONDATE , "%Y-%m-%d")
+dat$ADMISSION_ER_DATE <- as.Date( dat$ADMISSION_ER_DATE , "%Y-%m-%d")
+dat$INTERDAT <- as.Date( dat$INTERDAT , "%Y-%m-%d")
+
+   ### restrict dataset to current and last year
+as.numeric( format( dat$INTERDAT , "%Y" )) >= as.numeric( format( Sys.time() , "%Y" )) - 1 
+
+   ### month variable for agregation
+dat$Month <- format(dat$INTERDAT , "%y-%m")
+
+   ### calculate date diff in days
+dat$dTsymp2inter <- as.numeric(dat$INTERDAT - dat$SYMPTOM_ONSET_DATE ) ## Time from syptom onset to intervention
+dat$dTsymp2ad <- as.numeric(dat$HOSP_ADMISSIONDATE - dat$SYMPTOM_ONSET_DATE ) ## Time from symptom onset to admission @ PCI hospital
+dat$dTsymp2ref <- as.numeric(dat$REFERRING_HOSP_ADMISSIONDATE - dat$SYMPTOM_ONSET_DATE ) ## Time from symptom onset to admission @ referring hospital
+dat$dTref2ad <-  as.numeric(dat$HOSP_ADMISSIONDATE - dat$REFERRING_HOSP_ADMISSIONDATE ) ## Time from admission @ referring hospital to admission @ PCI hospital
+dat$dTref2inter <- as.numeric(dat$INTERDAT - dat$REFERRING_HOSP_ADMISSIONDATE ) ## Time from admission@referring hospital to intervention
+dat$dTad2inter <- as.numeric(dat$INTERDAT - dat$HOSP_ADMISSIONDATE ) ## Time from admission @ PCI center to intervention
+
+   ## some have missing symptom onset date, some have negative and some onset year 2001, 2003 !!
+   ## crude exclusion -> fix later :P
+dat$dTref2ad [ dat$dTref2ad < 0 ] <- NA
+dat$dTsymp2inter [ dat$dTsymp2inter < 0 ] <- NA
+dat$dTsymp2ad [ dat$dTsymp2ad < 0 ] <- NA
+dat$dTsymp2ref [ dat$dTsymp2ref < 0 ] <- NA
+dat$dTref2inter [ dat$dTref2inter < 0 ] <- NA
+dat$dTad2inter [ dat$dTad2inter < 0 ] <- NA
+
+dat$dTref2ad [ dat$dTref2ad > 100 ] <- NA
+dat$dTsymp2inter [ dat$dTsymp2inter > 100 ] <- NA
+dat$dTsymp2ad [ dat$dTsymp2ad > 100 ] <- NA
+dat$dTsymp2ref [ dat$dTsymp2ref > 100 ] <- NA
+dat$dTref2inter [ dat$dTref2inter > 100 ] <- NA
+dat$dTad2inter [ dat$dTad2inter > 100 ] <- NA
+
+
+   ### Defining some subsets of data -> resuling in some redundant data matrices, but savin a lot of indexing later on
+
+   ## get subacute NSTEMI patients
+   ## MCETYPE = 1/2/3 -> Hendelsestype 1) Planlagt, 2) Akutt, 3) Subakutt
+dat.NSTEMI <- subset( dat , subset = INDIKATION == 3 )
+
+dat.NSTEMI.subakutt <- subset( dat ,  subset = (Indikasjon == "NSTEMI") & (Hastegrad == "Subakutt"))
+
+dat.NSTEMI.subakutt.henvist <- subset( dat , subset = (Indikasjon == "NSTEMI") & (Hastegrad == "Subakutt") & (HenvisningsStatus == "Henvist"))
+dat.NSTEMI.subakutt.direkte <- subset( dat , subset = (Indikasjon == "NSTEMI") & (Hastegrad == "Subakutt") & (HenvisningsStatus == "Direkte"))
+
+@ 
+
+
+
+
+
+
+
+
+\begin{document}
+
+\maketitle
+
+
+
+\section{Diagnostisk hjertekaterisering og PCI}
+
+\begin{frame}
+\begin{Huge}
+Diagnostisk hjertekaterisering og PCI
+\end{Huge}
+\end{frame}
+
+
+   %%% MCETYPE
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Antall prosedyrer etter hastegrad og måned}
+<<echo=FALSE , results = tex>>=
+file = "N_procedures_mcetype_month.pdf"
+pdf(file , width = 12 , height = 8 , pointsize = 12)
+
+op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+pal <- brew( length(levels(dat$Hastegrad)))
+barplot( xtabs(~ Hastegrad + factor(Month)  , data = dat) , las = 1 , xlab = "Måned" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
+legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$Hastegrad) , cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+\end{frame}
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins( xtabs( ~ Month + Hastegrad , dat)) ,
+        digits = 0 , caption = "Antall prosdyrer etter hastegrad og måned") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+   %%% REGTYP
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Antall prosedyrer etter type og måned}
+<<echo=FALSE , results = tex>>=
+file = "N_procedures_regtyp_month.pdf"
+pdf(file , width = 12 , height = 8 , pointsize = 12)
+
+op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+pal <- brew( length(levels(dat$Regtyp)))
+barplot( xtabs(~ Regtyp + factor(Month)  , data = dat) , las = 1 , xlab = "Måned" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
+legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$Regtyp) , cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+\end{frame}
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins( xtabs( ~ Month + Regtyp , dat)) ,
+        digits = 0 , caption = "Antall prosdyrer etter type og måned") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+   %%% PRIMBES
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Antall prosedyrer etter primær beslutning og måned}
+<<echo=FALSE , results = tex>>=
+file = "N_procedures_primbes_month.pdf"
+pdf(file , width = 12 , height = 8 , pointsize = 12)
+
+op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+pal <- brew( length(levels(dat$PrimaerBeslutning)))
+barplot( xtabs(~ PrimaerBeslutning + factor(Month)  , data = dat) , las = 1 , xlab = "Måned" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
+legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$PrimaerBeslutning) , cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+\end{frame}
+
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins( xtabs( ~ Month + PrimaerBeslutning , dat)) ,
+        digits = 0 , caption = "Antall prosedyrer etter primær beslutning og måned") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+
+   %%% PRIMBES2
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Antall prosedyrer etter primær beslutning og måned}
+<<echo=FALSE , results = tex>>=
+file = "N_procedures_primbes_detailed_month.pdf"
+pdf(file , width = 12 , height = 8 , pointsize = 12)
+
+op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+pal <- brew( length(levels(dat$PrimaerBeslutning2)))
+barplot( xtabs(~ PrimaerBeslutning2 + factor(Month)  , data = dat) , las = 1 , xlab = "Måned" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
+legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$PrimaerBeslutning2) , cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+\end{frame}
+
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins( xtabs( ~ Month + PrimaerBeslutning2 , dat)) ,
+        digits = 0 , caption = "Antall prosedyrer etter primær beslutning og måned") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+
+   %%% JOURTID
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Antall prosdyrer etter vakttid og måned}
+<<echo=FALSE , results = tex>>=
+file = "N_procedures_jourtid_month.pdf"
+pdf(file , width = 12 , height = 8 , pointsize = 12)
+
+op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+pal <- brew( length(levels(dat$Vakttid)))
+barplot( xtabs(~ Vakttid + factor(Month)  , data = dat) , las = 1 , xlab = "Måned" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
+legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$Vakttid) , cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+\end{frame}
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins( xtabs( ~ Month + Vakttid , dat)) ,
+        digits = 0 , caption = "Antall prosedyrer etter vakttid og måned") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+   %%% INDIKATION
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Antall prosedyrer etter indikasjon og måned}
+<<echo=FALSE , results = tex>>=
+file = "N_procedures_indikation_month.pdf"
+pdf(file , width = 12 , height = 8 , pointsize = 12)
+
+op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+pal <- brew( length(levels(dat$Indikasjon)))
+barplot( xtabs(~ Indikasjon + factor(Month)  , data = dat) , las = 1 , xlab = "Måned" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
+legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$Indikasjon) , cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+\end{frame}
+
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins( xtabs( ~ Month + Indikasjon , dat)) ,
+        digits = 0 , caption = "Antall prosedyrer etter indikasjon og måned") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+   %%% FYND
+
+
+\begin{frame}
+\begin{figure}
+  \centering
+  \caption{Antall prosedyrer etter funn og måned}
+<<echo=FALSE , results = tex>>=
+file = "N_procedures_fynd_month.pdf"
+pdf(file , width = 12 , height = 8 , pointsize = 12)
+
+op <- par(mfcol = c (1,1) , xpd = NA , mar = c(5.1,4.1,4.1,13.1) , bg = "#EEEEEE")
+pal <- brew( length(levels(dat$Funn)))
+barplot( xtabs(~ Funn + factor(Month)  , data = dat) , las = 1 , xlab = "Måned" , ylab = "Antall" , col = pal , space = 0.2 , border = FALSE)
+legend( "right" , inset = -.28 , bty = "n" , horiz = FALSE , fill = pal, legend = levels(dat$Funn) , cex = 1)
+par(op)
+
+dev.null <- dev.off()
+cat("\n\n\\includegraphics[width=0.95\\textwidth]{", file, "}\n\\end{figure}\n", sep="")
+@
+\end{frame}
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins( xtabs( ~ Month + Funn , dat)) ,
+        digits = 0 , caption = "Antall prosedyrer etter funn og måned") ,
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+
+   %%%  R.DIATRYCK, R.DIADOP, R.DIAIVUS
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+FFR <- xtabs( ~ Month + DIATRYCK , data = dat )[ , 2]
+FFR <- data.frame( Month = attr( x = FFR , which = "names") , FFR = FFR )
+
+## ingen Doppler registrert
+#Doppler <- xtabs( ~ Month + DIADOP , data = dat )[ , 2]
+#Doppler <- data.frame( Month = attr( x = Doppler , which = "names") , Doppler = Doppler )
+
+IVUS <- xtabs( ~ Month + DIAIVUS , data = dat )[ , 2]
+IVUS <- data.frame( Month = attr( x = IVUS , which = "names") , IVUS = IVUS )
+
+Tillegg <- merge( FFR , IVUS , all = TRUE )
+
+print(
+    xtable(
+        Tillegg ,
+        digits = 0 , caption = "Antall tilleggsundersøkelser etter måned") ,
+    booktabs = TRUE ,
+    rotate.colnames = FALSE)
+
+@
+\end{tiny}
+\end{frame}
+
+
+
+\subsection{NSTEMI}
+
+\begin{frame}
+\begin{Huge}
+NSTEMI
+\end{Huge}
+\end{frame}
+
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins( xtabs( ~ HenvistFra + PrimaerBeslutning  , data = dat , subset = Indikasjon == "NSTEMI" )) ,
+        digits = 0 , caption = "Antall NSTEMI prosedyrer etter henvisende sykehus og primær beslutning"),
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        100*prop.table( xtabs( ~ HenvistFra + PrimaerBeslutning  , data = dat , subset = Indikasjon == "NSTEMI" ) , margin = 1) ,
+        digits = 1 , caption = "Prosent andel NSTEMI prosedyrer etter henvisende sykehus og primær beslutning"),
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        addmargins( xtabs( ~ HenvisningsStatus + PrimaerBeslutning  , data = dat , subset = Indikasjon == "NSTEMI" )) ,
+        digits = 0 , caption = "Antall NSTEMI prosedyrer etter henvisnings status og primær beslutning"),
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+
+\begin{frame}
+\begin{tiny}
+<<echo = FALSE , results = tex>>=
+print(
+    xtable(
+        100*prop.table( xtabs( ~ HenvisningsStatus + PrimaerBeslutning  , data = dat , subset = Indikasjon == "NSTEMI" ) , margin = 1) ,
+        digits = 1 , caption = "Prosent andel NSTEMI prosedyrer etter henvisnings status og primær beslutning"),
+    booktabs = TRUE ,
+    rotate.colnames = TRUE)
+@
+\end{tiny}
+\end{frame}
+
+
+
+\end{document}
+
+
+   %%%          legend.title          title of legend (‘element_text’;inherits from ‘title’)    
+   %%%                                                                                          
+   %%%          legend.title.align    alignment of legend title (number from 0 (left) to 1 
+   %%%                                (right)) 
+   %%%          legend.position       the position of 
+   %%%                                legends.  ("left", "right", "bottom", "top", or 
+   %%%                                two-element numeric vector) 
