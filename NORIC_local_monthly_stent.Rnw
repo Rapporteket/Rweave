@@ -67,7 +67,27 @@ dat.mce$Nstents[ is.na(dat.mce$Nstents) ] <- 0
 con <- dbDisconnect(con)
 con <- dbUnloadDriver(dbDriver("MySQL"))
 
+
 dat.stent$StentType <- factor(dat.stent$StentType)
+
+dat.stent$Indikasjon <- recode( dat.stent$Indikasjon ,"
+   'Stabil koronarsykdom '                    ='SAP';
+   'UAP'                                      ='UAP';
+   'NSTEMI'                                   ='NSTEMI';
+   'STEMI'                                    ='STEMI';
+   'STEMI > 24h'                              ='STEMI';
+   'STEMI/Rescue PCI'                         ='STEMI';
+   ''                                         = NA;
+   else                                       ='Annet'
+")
+ 
+dat.stent$Indikasjon <- factor( dat.stent$Indikasjon , levels = c(
+'SAP',
+'UAP',
+'NSTEMI',
+'STEMI',
+'Annet'))
+
 
    # simplify Xience stent names
 dat.stent$Stentnavn2 <- factor(gsub(
@@ -78,20 +98,11 @@ dat.stent$Stentnavn2 <- factor(gsub(
 
 dat.stent$ProsedyreDato <- as.Date(
     x = dat.stent$ProsedyreDAto ,
-    format = "%b %d, %Y")
+    format = "%Y-%m-%d")
 
-dat.mce$ProsedyreDato <- as.Date(
-    x = dat.mce$ProsedyreDato ,
-    format = "%b %d, %Y")
-
-
-# dat.stent$ProsedyreDato <- as.Date(
-#     x = dat.stent$ProsedyreDAto ,
-#     format = "%Y-%m-%d")
-# 
-# dat.mce$ProsedyreDato <- as.Date(
-#     x = dat.mce$ProsedyreDato ,
-#     format = "%Y-%m-%d")
+   ### restrict dataset to current and last year
+ind.stent <- which( as.numeric( format( dat.stent$ProsedyreDato , "%Y" )) >= as.numeric( format( Sys.time() , "%Y" )) - 1)
+dat.stent <- dat.stent[ind.stent,]
 
 dat.stent$Month <- as.numeric(
     format( 
@@ -119,6 +130,15 @@ dat.stent$YearQuarter <- factor(
         dat.stent$Quarter ,
         sep = "/"))
 
+
+
+dat.mce$ProsedyreDato <- as.Date(
+    x = dat.mce$ProsedyreDato ,
+    format = "%Y-%m-%d")
+
+   ### restrict dataset to current and last year
+ind.mce <- which( as.numeric( format( dat.mce$ProsedyreDato , "%Y" )) >= as.numeric( format( Sys.time() , "%Y" )) - 1)
+dat.mce <- dat.mce[ind,]
                        
 dat.mce$Month <- as.numeric(
     format( 
@@ -147,9 +167,6 @@ dat.mce$YearQuarter <- factor(
         sep = "/"))
 
 @ 
-
-
-
 
 
 
