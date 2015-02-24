@@ -48,118 +48,54 @@ con <- dbConnect( dbDriver("MySQL") ,
 # ensure utf8 encoding
 t <- dbGetQuery( con, "SET NAMES utf8;" )
 
-stent.query <- "
-SELECT
-   S.MCEID,
-   P.GENDER,
-<<<<<<< HEAD
-   P.BIRTH_DATE,
-=======
->>>>>>> 726e155217ccdf3dd8f3d06d72b273e7c1888e4b
-   R.INDIKATION,
-   R.INTERDAT,
-   R.HEIGHT,
-   R.WEIGHT,
-   S.SEGMENT,
-   S.STENT,
-<<<<<<< HEAD
-=======
-   ST.SID,
->>>>>>> 726e155217ccdf3dd8f3d06d72b273e7c1888e4b
-   ST.STENTNAMN,
-   ST.DES,
-   S.BALLONGLANGD,
-   S.DEBDIAM,
-   S.DIAM,
-   S.EFTERDILATATION,
-   S.FRAMGANG,
-   S.GRAFT,
-   S.LAKEMEDELSBALLONG,
-   S.MAXTRYCKVIDDEB,
-   S.MAXTRYCKVIDSTENT,
-   S.OCKL,
-   S.PROCTYP,
-   S.SEGMENT_STENT_TROMBOSE_TYPE,
-   S.STENOSGRUPP,
-   S.STENOSKLASS,
-   S.STENOSTYP,
-   S.STENTLANGD,
-   S.STENTSLUT,
-   S.UPPBLASNINGSTIDDEB
-FROM segment S
-   INNER  JOIN stent ST ON S.STENT=ST.SID
-<<<<<<< HEAD
-   INNER JOIN mce M ON S.MCEID=M.MCEID
-   INNER JOIN patient P ON M.PATIENT_ID=P.ID
-   LEFT JOIN regangio R ON S.MCEID=R.MCEID;"
-=======
-   INNER JOIN regangio R ON S.MCEID=R.MCEID
-   INNER JOIN mce M ON S.MCEID=M.MCEID
-   INNER JOIN patient P ON M.PATIENT_ID=P.ID;"
->>>>>>> 726e155217ccdf3dd8f3d06d72b273e7c1888e4b
-
-dat.stent <- dbGetQuery( con , stent.query )
+dat.stent <- dbGetQuery( con , "select * from SegmentStent")
 
 mce.query <- "
 SELECT
-   R.MCEID ,
-   COUNT(1) AS Nstents ,
-   R.INTERDAT
+   A.ForlopsID ,
+   A.ProsedyreType ,
+   SUM(S.ForlopsID>0) AS Nstents ,
+   A.ProsedyreDato
 FROM
-   regangio R
-   INNER JOIN segment S on R.MCEID=S.MCEID
-GROUP BY MCEID;"
+   AngioPCI A
+   LEFT JOIN SegmentStent S on A.ForlopsID=S.ForlopsID
+GROUP BY ForlopsID;"
 
 dat.mce <- dbGetQuery( con , mce.query)
+dat.mce$Nstents[ is.na(dat.mce$Nstents) ] <- 0
 
 con <- dbDisconnect(con)
 con <- dbUnloadDriver(dbDriver("MySQL"))
 
-
-
-
-dat.stent$GENDER <- factor(as.numeric(dat.stent$GENDER==1))
-
-
-dat.stent$DES[dat.stent$DES==0]="BMS"
-dat.stent$DES[dat.stent$DES==1]="DES"
-dat.stent$DES[dat.stent$DES==8]="BVS"
-dat.stent$DES <- factor( dat.stent$DES )
+dat.stent$StentType <- factor(dat.stent$StentType)
 
    # simplify Xience stent names
-dat.stent$STENTNAMN2 <- gsub(
-    pattern = "Xience.+" ,
+dat.stent$Stentnavn2 <- factor(gsub(
+    pattern = ".+Xience.+" ,
     replacement = "Xience" ,
-    x = dat.stent$STENTNAMN)
+    x = dat.stent$Stentnavn))
 
-dat.stent$Indikasjon <- recode( dat.stent$INDIKATION ,"
-1='SAP';
-2='UAP';
-3='NSTEMI';
-4:6='STEMI';
-NA=NA;
-else='Annet'
-")
 
-dat.stent$Indikasjon <- factor( dat.stent$Indikasjon , levels = c(
-'SAP',
-'UAP',
-'NSTEMI',
-'STEMI',
-'Annet'))
+dat.stent$ProsedyreDato <- as.Date(
+    x = dat.stent$ProsedyreDAto ,
+    format = "%b %d, %Y")
 
-dat.stent$INTERDAT <- as.Date(
-    x = dat.stent$INTERDAT ,
-    format = "%Y-%m-%d")
+dat.mce$ProsedyreDato <- as.Date(
+    x = dat.mce$ProsedyreDato ,
+    format = "%b %d, %Y")
 
-dat.mce$INTERDAT <- as.Date(
-    x = dat.mce$INTERDAT ,
-    format = "%Y-%m-%d")
 
+# dat.stent$ProsedyreDato <- as.Date(
+#     x = dat.stent$ProsedyreDAto ,
+#     format = "%Y-%m-%d")
+# 
+# dat.mce$ProsedyreDato <- as.Date(
+#     x = dat.mce$ProsedyreDato ,
+#     format = "%Y-%m-%d")
 
 dat.stent$Month <- as.numeric(
     format( 
-        x = dat.stent$INTERDAT , 
+        x = dat.stent$ProsedyreDato , 
         format = "%m" ))
 
 dat.stent$Quarter <- as.numeric(
@@ -169,12 +105,12 @@ dat.stent$Quarter <- as.numeric(
 
 dat.stent$Year <- as.numeric(
     format( 
-        x = dat.stent$INTERDAT ,
+        x = dat.stent$ProsedyreDato ,
         format = "%y" ))
 
 dat.stent$YearMonth <- factor(
     format(
-        x = dat.stent$INTERDAT ,
+        x = dat.stent$ProsedyreDato ,
         format = "%y-%m"))
 
 dat.stent$YearQuarter <- factor(
@@ -186,7 +122,7 @@ dat.stent$YearQuarter <- factor(
                        
 dat.mce$Month <- as.numeric(
     format( 
-        x = dat.mce$INTERDAT , 
+        x = dat.mce$ProsedyreDato , 
         format = "%m" ))
 
 dat.mce$Quarter <- as.numeric(
@@ -196,12 +132,12 @@ dat.mce$Quarter <- as.numeric(
                          
 dat.mce$Year <- as.numeric(
     format( 
-        x = dat.mce$INTERDAT ,
+        x = dat.mce$ProsedyreDato ,
         format = "%y" ))
 
 dat.mce$YearMonth <- factor(
     format(
-        x = dat.mce$INTERDAT ,
+        x = dat.mce$ProsedyreDato ,
         format = "%y-%m"))
 
 dat.mce$YearQuarter <- factor(
@@ -231,7 +167,7 @@ dat.mce$YearQuarter <- factor(
 <<echo=FALSE , results = tex>>=
 
 pdf(
-    file = "N_stents_DES_YearMonth.pdf" ,
+    file = "N_stents_StentType_YearMonth.pdf" ,
     width = 12 ,
     height = 8 ,
     pointsize = 12)
@@ -242,11 +178,11 @@ op <- par(
     mar = c(5.1,4.1,4.1,13.1) ,
     bg = "#EEEEEE")
 
-pal <- brew( length(levels(dat.stent$DES)))
+pal <- brew( length(levels(dat.stent$StentType)))
 
 barplot(
     xtabs(
-        formula = ~ DES + YearMonth ,
+        formula = ~ StentType + YearMonth ,
         data = dat.stent ) , 
     las = 1 ,
     xlab = "Måned" ,
@@ -261,7 +197,7 @@ legend(
     bty = "n" ,
     horiz = FALSE ,
     fill = pal,
-    legend = levels(dat.stent$DES) ,
+    legend = levels(dat.stent$StentType) ,
     cex = 1)
 
 par(op)
@@ -269,7 +205,7 @@ par(op)
 dev.null <- dev.off()
 @
 
-\includegraphics[width=0.95\textwidth]{N_stents_DES_YearMonth.pdf}
+\includegraphics[width=0.95\textwidth]{N_stents_StentType_YearMonth.pdf}
 \end{figure}
 \end{frame}
 
@@ -282,7 +218,7 @@ print(
     xtable(
         addmargins(
             xtabs(
-                formula = ~ YearMonth + DES ,
+                formula = ~ YearMonth + StentType ,
                 data = dat.stent )) ,
         digits = 0 , caption = "Antall stenter etter type og måned") ,
     booktabs = TRUE ,
@@ -301,7 +237,7 @@ print(
         100 * prop.table(
             addmargins(
                 xtabs(
-                    formula = ~ YearMonth + DES ,
+                    formula = ~ YearMonth + StentType ,
                     data = dat.stent ) ,
                 margin = 1 ) ,
             margin = 1) ,
@@ -322,11 +258,11 @@ print(
     100*prop.table(
         addmargins(
             xtabs(
-                formula = ~ YearMonth + Indikasjon + DES,
+                formula = ~ YearMonth + Indikasjon + StentType,
                 data = dat.stent ) ,
             margin = 1) ,
         margin = 1:2)[,,2] ,
-        digits = 1 , caption = "Prosent andel DES per indikasjon og måned") ,
+        digits = 1 , caption = "Prosent andel StentType per indikasjon og måned") ,
     booktabs = TRUE ,
     rotate.colnames = TRUE)
 @
@@ -385,7 +321,7 @@ print(
     xtable(
         addmargins(
             xtabs(
-                formula = ~ STENTNAMN2 +YearQuarter ,
+                formula = ~ Stentnavn2 +YearQuarter ,
                 data = dat.stent )) ,
         digits = 0 , caption = "Antall stenter etter merke per kvartal") ,
     booktabs = TRUE ,
@@ -405,7 +341,7 @@ print(
         100 * prop.table(
             addmargins(
                 xtabs(
-                    formula = ~ STENTNAMN2 + YearQuarter ,
+                    formula = ~ Stentnavn2 + YearQuarter ,
                     data = dat.stent ) ,
                 margin = 2 ) ,
             margin = 2) ,
