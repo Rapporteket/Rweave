@@ -97,7 +97,7 @@ dat.stent$Stentnavn2 <- factor(gsub(
 
 
 dat.stent$ProsedyreDato <- as.Date(
-    x = dat.stent$ProsedyreDAto ,
+    x = dat.stent$ProsedyreDato ,
     format = "%Y-%m-%d")
 
    ### restrict dataset to current and last year
@@ -138,7 +138,7 @@ dat.mce$ProsedyreDato <- as.Date(
 
    ### restrict dataset to current and last year
 ind.mce <- which( as.numeric( format( dat.mce$ProsedyreDato , "%Y" )) >= as.numeric( format( Sys.time() , "%Y" )) - 1)
-dat.mce <- dat.mce[ind,]
+dat.mce <- dat.mce[ind.mce,]
                        
 dat.mce$Month <- as.numeric(
     format( 
