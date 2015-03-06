@@ -24,7 +24,7 @@ require(RMySQL)          # accessing the database
 conf <- yaml::yaml.load_file('../dbConfig.yml')
 ## reshID <- 2 ## for local testing
 
-printname <- unlist( conf [[paste("noric" , reshID , sep = "")]]["disp"])
+printname <- unlist( conf [[paste("noricStaging" , reshID , sep = "")]]["disp"])
 
 cat("\\title{NORIC" , printname , "\\\\Stentbruk}\n\n")
 cat("\\date{" , date() , "}\n\n")
@@ -40,10 +40,10 @@ brew <- function(
 
 
 con <- dbConnect( dbDriver("MySQL") ,
-  dbname = unlist( conf[[paste("noric" , reshID , sep = "")]]["name"]) ,
-  host = unlist( conf[[paste("noric" , reshID , sep = "")]]["host"]) ,
-  user = unlist( conf[[paste("noric" , reshID , sep = "")]]["user"]) ,
-  password = unlist( conf[[paste("noric" , reshID , sep = "")]]["pass"]) )
+  dbname = unlist( conf[[paste("noricStaging" , reshID , sep = "")]]["name"]) ,
+  host = unlist( conf[[paste("noricStaging" , reshID , sep = "")]]["host"]) ,
+  user = unlist( conf[[paste("noricStaging" , reshID , sep = "")]]["user"]) ,
+  password = unlist( conf[[paste("noricStaging" , reshID , sep = "")]]["pass"]) )
 
 # ensure utf8 encoding
 t <- dbGetQuery( con, "SET NAMES utf8;" )
