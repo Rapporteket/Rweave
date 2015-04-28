@@ -15,6 +15,7 @@
 
 
 <<echo = FALSE , results = tex>>=
+
 library(car)             # recoding variables
 library(xtable)          # LaTeX tables
 library(RColorBrewer)    # intellingent colour palettes
