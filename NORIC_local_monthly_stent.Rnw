@@ -105,7 +105,7 @@ SegmentStent$Stentnavn2 <- factor(gsub(
 
 SegmentStent$ProsedyreDato <- as.Date(
     x = SegmentStent$ProsedyreDAto ,
-    format = "%b %d, %Y")
+    format = "%Y-%m-%d")
 
    ### restrict dataset to current and last year
 ind.stent <- which( as.numeric( format( SegmentStent$ProsedyreDato , "%Y" )) >= as.numeric( format( Sys.time() , "%Y" )) - 1)
