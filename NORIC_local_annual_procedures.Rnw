@@ -1,0 +1,911 @@
+%\documentclass[presentation,xcolor=pdftex,dvipsnames,table,8pt]{beamer}
+%\usetheme{Hannover}
+%\usecolortheme{seagull}
+
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english, norsk]{babel}
+\usepackage[absolute,overlay]{textpos}
+\usepackage{xspace}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{rotating}
+\usepackage{Sweave}
+
+
+<<echo = FALSE , eval = FALSE>>=
+
+library(car)             # recoding variables
+library(Hmisc)           # mainly for LaTeX tables (ftable)
+library(xtable)          # LaTeX tables
+library(ggplot2)         # advanced graphics
+library(RColorBrewer)    # intellingent colour palettes
+library(RMySQL)          # accessing the database
+
+brew <- function(
+    N = 3 ,
+    alpha = "AA" ) paste(
+        brewer.pal(
+            n = N , 
+            name = if(N<9) "Dark2" else "Set3" ) ,
+        alpha ,
+        sep = "")
+
+conf <- yaml::yaml.load_file('../dbConfig.yml')
+
+## reshID <- 102966 ## HUS reshID set manually for local testing
+
+printname <- unlist( conf [[paste("noricStaging" , reshID , sep = "")]]["disp"])
+
+cat("\\title{NORIC" , printname , "\\\\Årsrapport}\n\n")
+cat("\\date{" , date() , "}\n\n")
+
+con <- dbConnect( dbDriver("MySQL") ,
+  dbname = unlist( conf[[paste("noricStaging" , reshID , sep = "")]]["name"]) ,
+  host = unlist( conf[[paste("noricStaging" , reshID , sep = "")]]["host"]) ,
+  user = unlist( conf[[paste("noricStaging" , reshID , sep = "")]]["user"]) ,
+  password = unlist( conf[[paste("noricStaging" , reshID , sep = "")]]["pass"]) )
+
+# ensure utf8 encoding
+t <- dbGetQuery( con, "SET NAMES utf8;" )
+
+AngioPCI <- dbGetQuery(
+    conn = con , 
+    statement = "select * from AngioPCI")
+
+AngioPCI$ProsedyreDato <- as.Date(
+    AngioPCI$ProsedyreDato ,
+    format = "%Y-%m-%d")
+
+AngioPCI$AnkomstPCIDato <- as.Date(
+    AngioPCI$AnkomstPCIDato ,
+    format = "%Y-%m-%d")
+
+AngioPCI$InnleggelsesdatoDetteSykehus <- as.Date(
+    AngioPCI$InnleggelsesdatoDetteSykehus ,
+    format = "%Y-%m-%d")
+
+AngioPCI$DatoInnleggelseIHenvisendeSykehus <- as.Date(
+    AngioPCI$DatoInnleggelseIHenvisendeSykehus ,
+    format = "%Y-%m-%d")
+IndexOfMissing <- which( is.na( AngioPCI$DatoInnleggelseIHenvisendeSykehus ))
+AngioPCI$DatoInnleggelseIHenvisendeSykehus[ IndexOfMissing ] <-
+    AngioPCI$InnleggelsesdatoDetteSykehus[ IndexOfMissing ]
+IndexOfMissing <- which( is.na( AngioPCI$DatoInnleggelseIHenvisendeSykehus ))
+AngioPCI$DatoInnleggelseIHenvisendeSykehus[ IndexOfMissing ] <-
+    AngioPCI$AnkomstPCIDato[ IndexOfMissing ]
+
+AngioPCI$Ventetid <- as.numeric(AngioPCI$ProsedyreDato - AngioPCI$DatoInnleggelseIHenvisendeSykehus)
+AngioPCI$VentetidKategori <- recode(
+    var = AngioPCI$Ventetid ,
+    recodes = '
+1=1;
+2=2;
+3=3;
+4=4;
+5=5;
+6=6;
+7:30=">6";
+else="Ukjent"
+')
+
+AngioPCI$Month <- factor( format( AngioPCI$ProsedyreDato , "%y-%m") )
+
+AngioPCI$FodselsDato <- as.Date(
+    AngioPCI$FodselsDato ,
+    format = "%Y-%m-%d")
+
+AngioPCI$Alder <- as.numeric(round((AngioPCI$ProsedyreDato - AngioPCI$FodselsDato)/365))
+
+AngioPCI$AldersGruppe <- cut(
+    x = AngioPCI$Alder ,
+    breaks = c(0,20,30,40,50,60,70,80,90,200) ,
+    labels = c("<20 år" , "20-29 år" , "30-39 år" , "40-49 år" , "50-59 år" , "60-69 år" , "70-79 år" , "80-89 år" , "90+ år"))
+
+## using overflyttet fra sykehus as a substitute for lokal sykehus
+AngioPCI$OverflyttetFraSykehus[ which( AngioPCI$OverflyttetFraSykehus == "") ] <- printname
+AngioPCI$OverflyttetFraSykehus <- factor( gsub( " .*" , "" , AngioPCI$OverflyttetFraSykehus) )
+
+AngioPCI$Lokalsykehus[ which( AngioPCI$Lokalsykehus == "" )] <- "Ukjent"
+AngioPCI$Lokalsykehus <- factor(
+    x = AngioPCI$Lokalsykehus ,
+    levels = c("Sykehuset Namsos" , "Sykehuset Levanger" , "St.Olavs Hospital" , "Orkdal sykehus" , "Kristiansund sykehus" , "Molde sykehus" , "Ålesund sykehus" , "Volda sykehus" , "Annet sykehus" , "Ukjent"),
+    labels = c("Namsos" , "Levanger" , "St.Olavs" , "Orkdal" , "Kristiansund" , "Molde" , "Ålesund" , "Volda" , "Annet" , "Ukjent"))
+
+
+AngioPCI$RoykeStatus[ which( AngioPCI$RoykeStatus == "") ] <- "Ukjent"
+AngioPCI$TidligereHjerteinfarkt[ which( AngioPCI$TidligereHjerteinfarkt == "") ] <- "Ukjent"
+AngioPCI$TidligerePCI[ which( AngioPCI$TidligerePCI == "") ] <- "Ukjent"
+AngioPCI$TidligereACBOperasjon[ which( AngioPCI$TidligereACBOperasjon == "") ] <- "Ukjent"
+AngioPCI$Diabetes[ which( AngioPCI$Diabetes == "") ] <- "Ukjent"
+AngioPCI$Hypertoni[ which( AngioPCI$Hypertoni == "") ] <- "Ukjent"
+AngioPCI$Indikasjon[ which( AngioPCI$Indikasjon == "") ] <- "Ukjent"
+AngioPCI$PrimarBeslutning[ which( AngioPCI$PrimarBeslutning == "") ] <- "Ukjent"
+
+AngioPCI$PrimarBeslutning <- factor(
+    x = AngioPCI$PrimarBeslutning ,
+    levels = c(
+"PCI ad hoc" ,
+"PCI elektiv" ,
+"Fortsatt medisinsk behandling" ,
+"Ingen behandling" ,
+"Fortsatt utredning" ,
+"ACB-operasjon" ,
+"Annet operativt inngrep" ,
+"Klaffeoperasjon" ,
+"Henvisning til annet sykehus" ,
+"Klaffeoperasjon + ACB-operasjon" ,
+"PCI+ACB-operasjon",
+"Ukjent"))
+
+AngioPCI <- subset(
+    AngioPCI ,
+    subset = format(ProsedyreDato , "%Y") == 2014)
+
+SegmentStent <- read.table(
+    file = "../data/CSVtables/stolav/StagingStOlavSegmentStentUTF8.csv" ,
+    header = TRUE ,
+    as.is = TRUE ,
+    sep = ";" ,
+    dec = "." )
+
+SegmentStent$ProsedyreDato <- as.Date(
+    SegmentStent$ProsedyreDato ,
+    format = "%Y-%m-%d")
+
+SegmentStent <- subset(
+    SegmentStent ,
+    subset = format(ProsedyreDato , "%Y") == 2014)
+
+@ 
+
+
+\begin{document}
+\maketitle
+
+<<echo = FALSE , eval = TRUE>>=
+pdf(
+    file = "Figure_N_procedures_per_month_by_type.pdf")
+ggplot(
+    data = AngioPCI ,
+    mapping = aes(
+        x = format(ProsedyreDato , "%m") ,
+        group = ProsedyreType ,
+        color = ProsedyreType
+    ))+
+            geom_histogram(
+                aes(
+                    fill = ProsedyreType) ,
+                alpha = 0.8) +
+                    scale_x_discrete("Måned") +
+                    scale_y_continuous("Antall")
+tmp <- dev.off()
+@ 
+
+\begin{figure}
+  \caption{Totalt antall prosedyrer per måned etter type}
+  \includegraphics[width=\textwidth]{Figure_N_procedures_per_month_by_type.pdf}
+\end{figure}
+
+
+<<echo = FALSE , eval = TRUE>>=
+
+TAB1 <- rbind(
+
+    addmargins(
+        table(
+            AngioPCI$Lokalsykehus )) ,
+
+    addmargins(
+        table(
+            AngioPCI$Kjonn,
+            AngioPCI$Lokalsykehus ) ,
+        margin = 2) ,
+
+    round( c(
+        unlist(
+            lapply(
+                X = split( AngioPCI$Alder , AngioPCI$Lokalsykehus) ,
+                FUN = median , na.rm = TRUE)) ,
+        median(AngioPCI$Alder))) ,
+    
+    addmargins(
+        table(
+            AngioPCI$AldersGruppe,
+            AngioPCI$Lokalsykehus ) ,
+        margin = 2) ,
+    
+    addmargins(
+        table(
+            AngioPCI$HendelsesType,
+            AngioPCI$Lokalsykehus ) ,
+        margin = 2) ,
+    
+    addmargins(
+        table(
+            AngioPCI$ProsedyreType,
+            AngioPCI$Lokalsykehus ) ,
+        margin = 2) ,
+    
+    addmargins(
+        table(
+            AngioPCI$RoykeStatus,
+            AngioPCI$Lokalsykehus ) ,
+        margin = 2) ,
+    
+    addmargins(
+        table(
+            AngioPCI$TidligereHjerteinfarkt,
+            AngioPCI$Lokalsykehus ) ,
+        margin = 2) ,
+    
+    addmargins(
+        table(
+            AngioPCI$TidligerePCI,
+            AngioPCI$Lokalsykehus ) ,
+        margin = 2) ,
+    
+    addmargins(
+        table(
+            AngioPCI$TidligereACBOperasjon,
+            AngioPCI$Lokalsykehus ) ,
+        margin = 2) ,
+
+    addmargins(
+        table(
+            AngioPCI$Diabetes,
+            AngioPCI$Lokalsykehus ) ,
+        margin = 2) ,
+
+    addmargins(
+        table(
+            AngioPCI$Hypertoni,
+            AngioPCI$Lokalsykehus ) ,
+        margin = 2) ,
+
+    addmargins(
+        table(
+            AngioPCI$Indikasjon,
+            AngioPCI$Lokalsykehus ) ,
+        margin = 2) ,
+
+    addmargins(
+        table(
+            AngioPCI$PrimarBeslutning,
+            AngioPCI$Lokalsykehus ) ,
+        margin = 2))
+
+row1 <- c(
+"Antall prosedyrer" ,
+"Kvinne" ,
+"Mann" ,
+"Median" ,
+"<20 år" ,
+"20-29 år" ,
+"30-39 år" ,
+"40-49 år" ,
+"50-59 år" ,
+"60-69 år" ,
+"70-79 år" ,
+"80-89 år" ,
+"90+ år" ,
+"Akutt" ,
+"Planlagt" ,
+"Subakutt" ,
+"Angio" ,
+"Angio + PCI" ,
+"PCI" ,
+"Aldri røykt" ,
+"Eks-røyker >1 mnd" ,
+"Ukjent" ,
+"Ja" ,
+"Nei" ,
+"Ukjent" ,
+"Ja" ,
+"Nei" ,
+"Ukjent" ,
+"Ja" ,
+"Nei" ,
+"Ukjent" ,
+"Ja" ,
+"Nei" ,
+"Ukjent" ,
+"Ja" ,
+"Nei" ,
+"Ukjent" ,
+"AMI- mekanisk komplikasjon" ,
+"Annet" ,
+"Aortaneurysme/disseksjon" ,
+"Arytmiutredning" ,
+"Donorutredning" ,
+"Forskning og utvikling" ,
+"Hjertestans uten STEMI" ,
+"Hjertestans ved STEMI" ,
+"Hjertesvikt/kardiomyopati" ,
+"Mistenkt komplikasjon ved Angio/PCI" ,
+"NSTEMI" ,
+"Riskovurdering etter vellykket trombolyse" ,
+"Stabil koronarsykdom" ,
+"STEMI" ,
+"STEMI > 24h" ,
+"STEMI/Rescue PCI" ,
+"Stum ischemi" ,
+"UAP" ,
+"Ukjent" ,
+"Uklare brystsmerter" ,
+"Vitieutredning" ,
+"PCI ad hoc" ,
+"PCI elektiv" ,
+"Fortsatt medisinsk behandling" ,
+"Ingen behandling" ,
+"Fortsatt utredning" ,
+"ACB-operasjon" ,
+"Annet operativt inngrep" ,
+"Klaffeoperasjon" ,
+"Henvisning til annet sykehus" ,
+"Klaffeoperasjon + ACB-operasjon" ,
+"PCI+ACB-operasjon" ,
+"Ukjent")
+
+
+
+
+row2 <- c("Totalt antall","Kjønn","Median alder","Aldersgrupper","Hendelse","Prosedyre","Røyke status","Tidlegere hjerteinfarkt","Tidlegere PCI","Tidlegere ACB","Diabetes","Hypertoni","Indikasjon","Primær beslutning")
+@ 
+
+
+\begin{table}[!tbp]
+\caption{Totalt antall prosedyrer etter utvalgte pasient- og prosedyrekarakteristika fordelt på lokalt sykehus}
+\centering
+\resizebox{\textwidth}{!}{
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB1,
+    booktabs = TRUE,
+    center = "none",
+    table.env = FALSE ,
+    rowname = row1,
+    rgroup = row2,
+    n.rgroup = c(1,2,1,9,3,3,3,3,3,3,3,3,21,12) ,
+    title = "",
+    file = "")
+@ 
+}
+\end{table}
+
+
+
+<<echo = FALSE , eval = TRUE>>=
+AngioPCI$Stikksted <- factor(
+    x = AngioPCI$Stikksted ,
+    levels = c(
+"A radialis høyre" ,
+"A femoralis" ,
+"A femoralis konvertert fra radialis" ,
+"A radialis + A femoralis" ,
+"A radialis venstre" ,
+"A radialis konvertert fra A femoralis" ,
+"A axillaris" ,
+"A brachialis" ,
+"Dobbel radialis" ,
+"Dobbel femoralis" ,
+"Annet"))
+
+
+TAB2a <- cbind(
+    table( AngioPCI$Stikksted ),
+    as.numeric(
+        round(
+            100 * prop.table(
+                table( AngioPCI$Stikksted )) ,
+            digits = 1)))
+attr( TAB2a , "dimnames")[[2]] <- c("N","%")
+
+TAB2b <- cbind(
+    table( AngioPCI$PrimarBeslutning ),
+    as.numeric(
+        round(
+            100 * prop.table(
+                table( AngioPCI$PrimarBeslutning )) ,
+            digits = 1)))
+attr( TAB2b , "dimnames")[[2]] <- c("N","%")
+
+TAB2 <- rbind( TAB2a , TAB2b )
+@ 
+
+
+\begin{table}[!tbp]
+\caption{Totalt antall angiografi-/PCI-prosedyrer etter innstikksted}
+\centering
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB2a ,
+    booktabs = TRUE,
+    center = "none",
+    table.env = FALSE,
+    title = "",
+    file = "")
+@ 
+\end{table}
+
+
+\begin{table}[!tbp]
+\caption{Totalt antall angiografi-/PCI-prosedyrer etter primær beslutning}
+\centering
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB2b ,
+    center = "none",
+    table.env = FALSE,
+    booktabs = TRUE,
+    title = "",
+    file = "")
+@ 
+\end{table}
+
+
+
+<<echo = FALSE , eval = TRUE>>=
+AngioPCI$Funn[AngioPCI$Funn==""] <- "Ukjent"
+
+TAB3 <- with(
+    data = subset(
+        x = AngioPCI ,
+        subset = ProsedyreType != "PCI") ,
+    expr = {
+        cbind(
+            table(Funn),
+            as.numeric(
+                round(
+                    100 * prop.table(
+                        table( Funn )) ,
+                    digits = 1)))
+    })
+
+attr( TAB3 , "dimnames")[[2]] <- c("N","%")
+@ 
+
+\begin{table}[!tbp]
+\caption{Totalt antall angiografi prosedyrer etter funn}
+\centering
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB3 ,
+    booktabs = TRUE,
+    center = "none" ,
+    table.env = FALSE ,
+    title = "",
+    file = "")
+@ 
+\end{table}
+
+
+
+<<echo = FALSE , eval = TRUE>>=
+AngioPCI$Patologi <- recode(
+    var = AngioPCI$Funn ,
+    recodes = '
+"Normalt /Ateromatos"="Normal/ lite patologi";
+"Ikke konklusiv undersøkelse"="Ikke konklusiv undersøkelse";
+"Ukjent"=NA;
+else="Signifikant stenose"
+')
+
+AngioPCI$Indikasjon2 <- recode(
+    var = AngioPCI$Indikasjon ,
+    recodes = '
+"Stabil koronarsykdom "="Stabil koronarsykdom";
+"UAP"="Akutt koronarsykdom";
+"NSTEMI"="Akutt koronarsykdom";
+"STEMI"="Akutt koronarsykdom";
+"STEMI > 24h"="Akutt koronarsykdom";
+"STEMI/Rescue PCI"="Akutt koronarsykdom";
+"Riskovurdering etter vellykket trombolyse"="Akutt koronarsykdom";
+"Hjertestans ved STEMI"="Akutt koronarsykdom";
+"Hjertestans uten STEMI"="Akutt koronarsykdom";
+" Uklare brystsmerter"="Stabil koronarsykdom";
+"Vitieutredning"="Klaffer, arytmi, svikt, aneurysme";
+"Arytmiutredning"="Klaffer, arytmi, svikt, aneurysme";
+"Hjertesvikt/kardiomyopati"="Klaffer, arytmi, svikt, aneurysme";
+"Kontroll etter transplantasjon"="Klaffer, arytmi, svikt, aneurysme";
+"Stum ischemi"="Stabil koronarsykdom";
+"AMI- mekanisk komplikasjon"="Akutt koronarsykdom";
+"Aortaneurysme/disseksjon"="Klaffer, arytmi, svikt, aneurysme";
+"Ukjent"="Ukjent";
+else="Annen indikasjon"
+')
+
+TAB4 <- ftable(
+    xtabs(
+        formula = ~ Indikasjon2 + Patologi + Lokalsykehus,
+        data = AngioPCI ,
+        subset = ProsedyreType != "PCI") ,
+    col.vars = 3)
+
+row1 <- attr( TAB4 , "row.vars" )[[1]]
+row2 <- attr( TAB4 , "row.vars" )[[2]]
+col1 <- attr( TAB4 , "col.vars" )[[1]]
+@ 
+
+\begin{table}[!tbp]
+\caption{Totalt antall angiografi prosedyrer etter funn og lokalt sykehus}
+\centering
+\resizebox{\textwidth}{!}{
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB4,
+    booktabs = TRUE,
+    center = "none",
+    table.env = FALSE,
+    title = "",
+    file = "",
+    colheads = col1,
+    rowname = row2,
+    rgroup = row1,
+    n.rgroup = rep(3, 5))
+@ 
+}
+\end{table}
+
+
+
+<<echo = FALSE , eval = TRUE>>=
+TAB5 <- ftable(
+    addmargins(
+        xtabs(
+            formula = ~ Indikasjon2 + AldersGruppe + Kjonn + Patologi ,
+            data = AngioPCI ,
+            subset = 
+                (ProsedyreType != "PCI") &
+                    (Indikasjon2 %in% c( "Akutt koronarsykdom" , "Stabil koronarsykdom"))) ,
+        margin = 4) ,
+    col.vars = 3:4 )
+
+row1 <- attr( TAB5 , "row.vars" )[[1]]
+row2 <- attr( TAB5 , "row.vars" )[[2]]
+col1 <- attr( TAB5 , "col.vars" )[[1]]
+col2 <- attr( TAB5 , "col.vars" )[[2]]
+@ 
+
+\begin{table}[!tbp]
+\caption{Totalt antall angiografi prosedyrer ved stabil/akkut koronarsykdom etter funn, alder og kjønn}
+\centering
+\resizebox{\textwidth}{!}{
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB5 ,
+    booktabs = TRUE,
+    table.env = FALSE ,
+    center = "none" ,
+    title = "",
+    file = "",
+    rowname = row2,
+    rgroup = row1,
+    n.rgroup = rep(9,2),
+    colheads = c(col2,col2),
+    cgroup = col1,
+    n.cgroup = rep(4,2))
+@ 
+}
+\end{table}
+
+
+
+<<echo = FALSE , eval = TRUE>>=
+AngioPCI$AnnenDiagnostikk <- "Ingen annen diagnostikk"
+AngioPCI$AnnenDiagnostikk[ AngioPCI$IVUS == "Ja" ] <- "IVUS"
+AngioPCI$AnnenDiagnostikk[ AngioPCI$Doppler == "Ja" ] <- "Doppler"
+AngioPCI$AnnenDiagnostikk[ AngioPCI$OCT == "Ja" ] <- "OCT"
+AngioPCI$AnnenDiagnostikk[ AngioPCI$FFR == "Ja" ] <- "FFR"
+AngioPCI$AnnenDiagnostikk[ AngioPCI$AnnenDiag == "Ja" ] <- "Annen"
+AngioPCI$AnnenDiagnostikk <- factor(
+    x = AngioPCI$AnnenDiagnostikk ,
+    levels = c("Ingen annen diagnostikk" , "FFR" , "IVUS" , "OCT" , "Annen"))
+
+TAB6 <- cbind(
+    table( AngioPCI$AnnenDiagnostikk) ,
+    as.numeric(
+        round(
+            100 * prop.table(
+                table( AngioPCI$AnnenDiagnostikk )) ,
+            digits = 1)))
+
+attr( TAB6 , "dimnames" )[[2]] <- c("N","%")
+@ 
+
+\begin{table}[!tbp]
+\caption{Totalt antall angiografi- eller PCI-prosedyrer etter annen diagnostikk}
+\centering
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB6 ,
+    booktabs = TRUE,
+    table.env = FALSE ,
+    center = "none" ,
+    title = "",
+    file = "")
+@
+\end{table}
+
+
+<<echo = FALSE , eval = TRUE>>=
+
+AngioOperators <- cbind(
+    AngioPCI$AngioOperatorer ,
+    gsub( ".+,.+" , NA , AngioPCI$AngioOperatorer ) ,
+    gsub( ",.+" , "" , AngioPCI$AngioOperatorer ) ,
+    gsub( ".+," , "" , AngioPCI$AngioOperatorer ))
+AngioOperators[ !is.na(AngioOperators[,2]) , 3:4] <- NA
+
+AngioSoloTAB <- as.data.frame( table(AngioOperators[,2]))
+AngioSoloTAB$N1Perc <- round( 100 * prop.table( AngioSoloTAB$Freq ) , digits = 1 )
+
+AngioDuoTAB <- merge(
+    as.data.frame( table(AngioOperators[,3])) ,
+    as.data.frame( table(AngioOperators[,4])) ,
+    by = "Var1" ,
+    all = TRUE)
+
+AngioDuoTAB$N2 <- rowSums(AngioDuoTAB[,2:3] , na.rm = TRUE)
+AngioDuoTAB$N2Perc <- round( 100 * prop.table( AngioDuoTAB$N2 ) , digits = 1 )
+
+AngioOperatorTAB <- merge(
+    AngioSoloTAB ,
+    AngioDuoTAB[ , -2:-3] ,
+    by = "Var1" ,
+    all = TRUE)
+
+AngioOperatorTAB$Sum <- rowSums( AngioOperatorTAB[,c(2,4)] , na.rm = TRUE )
+AngioOperatorTAB$SumPerc <- round( 100 * prop.table( AngioOperatorTAB$Sum ) , digits = 1 )
+names(AngioOperatorTAB) <- c("Lege","N","%","N","%","N","%")
+
+PCIOperators <- cbind(
+    AngioPCI$PCIOperatorer ,
+    gsub( ".+,.+" , NA , AngioPCI$PCIOperatorer ) ,
+    gsub( ",.+" , "" , AngioPCI$PCIOperatorer ) ,
+    gsub( ".+," , "" , AngioPCI$PCIOperatorer ))
+PCIOperators[ !is.na(PCIOperators[,2]) , 3:4] <- NA
+
+PCISoloTAB <- as.data.frame( table(PCIOperators[,2]))
+PCISoloTAB$N1Perc <- round( 100 * prop.table( PCISoloTAB$Freq ) , digits = 1 )
+
+PCIDuoTAB <- merge(
+    as.data.frame( table(PCIOperators[,3])) ,
+    as.data.frame( table(PCIOperators[,4])) ,
+    by = "Var1" ,
+    all = TRUE)
+
+PCIDuoTAB$N2 <- rowSums(PCIDuoTAB[,2:3] , na.rm = TRUE)
+PCIDuoTAB$N2Perc <- round( 100 * prop.table( PCIDuoTAB$N2 ) , digits = 1 )
+
+PCIOperatorTAB <- merge(
+    PCISoloTAB ,
+    PCIDuoTAB[ , -2:-3] ,
+    by = "Var1" ,
+    all = TRUE)
+
+PCIOperatorTAB$Sum <- rowSums( PCIOperatorTAB[,c(2,4)] , na.rm = TRUE )
+PCIOperatorTAB$SumPerc <- round( 100 * prop.table( PCIOperatorTAB$Sum ) , digits = 1 )
+names(PCIOperatorTAB) <- c("Lege","N","%","N","%","N","%")
+@ 
+
+\begin{table}[!tbp]
+\caption{Totalt antall, prosent andel PCI etter operatør}
+\centering
+<<echo = FALSE , results = tex>>=
+latex(
+    object = PCIOperatorTAB ,
+    cgroup = c("","Alene" , "Med andre" , "Totalt") ,
+    n.cgroup = c(1,2,2,2) ,
+    booktabs = TRUE,
+    table.env = FALSE ,
+    center = "none" ,
+    title = "",
+    file = "")
+@
+\end{table}
+
+\begin{table}[!tbp]
+\caption{Totalt antall, prosent andel angiografi etter operatør}
+\centering
+<<echo = FALSE , results = tex>>=
+latex(
+    object = AngioOperatorTAB ,
+    cgroup = c("","Alene" , "Med andre" , "Totalt") ,
+    n.cgroup = c(1,2,2,2) ,
+    booktabs = TRUE,
+    table.env = FALSE ,
+    center = "none" ,
+    title = "",
+    file = "")
+@
+\end{table}
+
+
+<<echo = FALSE , eval = TRUE>>=
+TAB8 <- cbind(
+    table( SegmentStent$Stentnavn) ,
+    as.numeric(
+        round(
+            100 * prop.table(
+                table( SegmentStent$Stentnavn) ) ,
+            digits = 1)))
+
+attr( TAB8 , "dimnames" )[[2]] <- c("N","%")
+@ 
+
+\begin{table}[!tbp]
+\caption{Totalt antall, prosent andel stenter etter merke}
+\centering
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB8 ,
+    booktabs = TRUE,
+    table.env = FALSE ,
+    center = "none" ,
+    title = "",
+    file = "")
+@
+\end{table}
+
+
+<<echo = FALSE>>=
+TAB9 <- cbind(
+    table( AngioPCI$LabKomplikasjon ) ,
+    as.numeric(
+        round(
+            100 * prop.table(
+                table( AngioPCI$LabKomplikasjon )) ,
+            digits = 1)))
+
+attr( TAB9 , "dimnames" )[[2]] <- c("N","%")
+@ 
+
+\begin{table}[!tbp]
+\caption{Totalt antall, prosent andel komplikasjoner på laboratoriet}
+\centering
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB9 ,
+    booktabs = TRUE,
+    table.env = FALSE ,
+    center = "none" ,
+    title = "",
+    file = "")
+@
+\end{table}
+
+
+
+<<echo = FALSE>>=
+TAB10 <- cbind(
+    table( AngioPCI$Komplikasjon ) ,
+    as.numeric(
+        round(
+            100 * prop.table(
+                table( AngioPCI$Komplikasjon )) ,
+            digits = 1)))
+
+attr( TAB10 , "dimnames" )[[2]] <- c("N","%")
+@ 
+
+\begin{table}[!tbp]
+\caption{Totalt antall, prosent andel komplikasjoner på avdelingen}
+\centering
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB10 ,
+    booktabs = TRUE,
+    table.env = FALSE ,
+    center = "none" ,
+    title = "",
+    file = "")
+@
+\end{table}
+
+
+<<echo = FALSE>>=
+TAB11 <- with(
+    data = subset(
+        x = AngioPCI ,
+        subset = ProsedyreType != "Angio" ) ,
+    expr = cbind(
+        table( AdjuvantTerapi ) ,
+        as.numeric(
+            round(
+                100 * prop.table(
+                table( AdjuvantTerapi )) ,
+            digits = 1))))
+
+attr( TAB11 , "dimnames" )[[2]] <- c("N","%")
+@ 
+
+\begin{table}[!tbp]
+\caption{Totalt antall, prosent andel adjuvant terapi ved PCI}
+\centering
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB11 ,
+    booktabs = TRUE,
+    table.env = FALSE ,
+    center = "none" ,
+    title = "",
+    file = "")
+@
+\end{table}
+
+<<echo = FALSE>>=
+
+TAB12n <- addmargins( xtabs( 
+    formula = ~ OverflyttetFraSykehus + VentetidKategori ,
+    data = AngioPCI ,
+    subset = Indikasjon == "NSTEMI" ))
+
+TAB12p <- round(
+    100 * prop.table(
+        addmargins(
+            xtabs(
+                formula = ~ OverflyttetFraSykehus + VentetidKategori ,
+                data = AngioPCI ,
+                subset = (Indikasjon == "NSTEMI") & (VentetidKategori!="Ukjent")) ,
+            margin = 1 ) ,
+        margin = 1 ) ,
+    digits = 1)
+
+@ 
+
+\begin{table}[!tbp]
+\caption{Totalt antall dager fra innleggelse til prosdyre ved NSTEMI fordelt på sykehus}
+\centering
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB12n ,
+    booktabs = TRUE,
+    table.env = FALSE ,
+    center = "none" ,
+    title = "",
+    file = "")
+@
+\end{table}
+
+\begin{table}[!tbp]
+\caption{Prosent andel dager fra innleggelse til prosdyre ved NSTEMI og kjent innleggelsesdato fordelt på sykehus}
+\centering
+<<echo = FALSE , results = tex>>=
+latex(
+    object = TAB12p ,
+    booktabs = TRUE,
+    table.env = FALSE ,
+    center = "none" ,
+    title = "",
+    file = "")
+@
+\end{table}
+
+
+<<echo = FALSE , eval = TRUE>>=
+AngioPCI$HenvisningsStatus <- factor(
+    x = AngioPCI$OverflyttetFraSykehus=="St.Olavs" ,
+    labels = c("Henvist" , "Direkte"))
+pdf("Figure_N_procedures_by_waiting_time_NSTEMI.pdf")
+ggplot(
+    data = AngioPCI[ AngioPCI$VentetidKategori!="Ukjent" , ] ,
+    mapping = aes(
+        x = VentetidKategori ,
+        color = HenvisningsStatus)) +
+            geom_histogram(
+                aes( fill = HenvisningsStatus ) ,
+                alpha = 0.8 )
+tmp <- dev.off()
+@ 
+
+\begin{figure}
+  \caption{Totalt antall dager fra innleggelse til prosdyre ved NSTEMI fordelt på sykehus}
+  \includegraphics[width=\textwidth]{Figure_N_procedures_by_waiting_time_NSTEMI.pdf}
+\end{figure}
+
+
+\end{document}
+
