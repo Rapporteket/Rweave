@@ -1,0 +1,1680 @@
+% For å kompilera, køyr følgjande kommandoar
+% setwd("h:/kvalreg/lkg-registeret/")
+% library(knitr)
+% knit2pdf("rapportmal.Rnw", compiler="lualatex", encoding="UTF-8")
+
+% Globale innstillingar for knitr
+<<globaleval, include=FALSE>>=
+opts_chunk$set(error=TRUE)     # Stopp på feil (viss *FALSE*, merkeleg nok)
+opts_chunk$set(tidy=FALSE)     # Ikkje reformater kjeldekoden
+opts_chunk$set(message=FALSE)  # Ikkje vis message()-meldingar
+kjeldekode=FALSE               # Vis også kjeldekoden (viss TRUE)
+
+# Bruk Cairo til å laga PDF-filer (betre kvalitet og unngår
+# nokre dumme feil med pdf(), og bruk standard figurbreidd
+# ~lik tekstbreidda)
+options(device = function(file, width = 4.1, height = 4.1, ...) {
+  cairo_pdf(tempfile(), width = width, height = height, ...)
+})
+opts_chunk$set(out.width="4.1in") # Standard figurbreidd
+opts_chunk$set(fig.pos="htbp")    # Standard figurplassering
+@
+
+% Globale variablar som vert endra år for år
+<<variablar, include=FALSE>>=
+# Endra desse variablane for å velja utgjevings- og rapporteringsår
+rapporteringsår = 2014          # Året rapporten gjeld for (typisk året før han vert utgjeven)
+fødselsår = rapporteringsår - 1 # Ser på pasientar fødde dette året
+
+# Manuell statistikk på kor mange som vart invitert og som samtykka dei ulike åra
+samtykke=rbind(
+  data.frame(år=2012, plass="Bergen", invitert=30, samtykka=30),
+  data.frame(år=2012, plass="Oslo", invitert=70, samtykka=70)
+)
+@
+
+\documentclass{RapporteketReport}
+
+\registernamn{Norsk kvalitetsregister for leppe-kjeve-ganespalte}
+\rapportaar{\Sexpr{rapporteringsår}}
+\forfattarar{Åse Sivertsen, Åsa Rommetveit Remme, Karl Ove Hufthammer}
+
+\usepackage{qrcode}
+
+\begin{document}
+
+\hyphenation{kvalitets-register bryst-melk-ernæring system-ansvarlig} % Må stå etter \begin{document}
+
+\lagforside
+
+\part{Årsrapport}\label{par:rap}
+
+<<innstillingar, echo=kjeldekode, results='hide', warning=FALSE, message=FALSE>>=
+# Ikkje gjer om tekst til faktorar automatisk
+options(stringsAsFactors=FALSE)
+
+# Nødvendige pakkar
+library(ggplot2)   # For grafar
+library(scales)    # Skalating for bruk med ggplot2
+library(plyr)      # For enkel aggregering
+library(lubridate) # For smart og enkel tid- og datohandtering
+library(reshape2)  # Ditto
+library(stringr)   # For teksthandtering
+library(rvest)     # For henting av data frå eksterne nettsider
+library(XML)       # For XML-manipulering
+library(Hmisc)     # For %nin% og describe()
+library(car)       # For recode()
+
+# Lag tabell som også viser NA-verdiar om dei finst
+tab=function(...) table(..., useNA="ifany")
+@
+
+<<grafinnstillingar, echo=kjeldekode>>=
+# Offisielle fargar (som eg ikkje likar så godt)
+colPrim=c("#000059", "#084594", "#2171b5", "#4292c6",
+          "#6baed6", "#c6dbef")                       # Primærfarge (mørk til lys)
+colNøyt=c("#4D4D4D", "#737373", "#A6A6A6", "#DADADA") # Nøytralfarge
+colKontr="#FF7260"                                    # Kontrastfarge
+
+# ggplot2-tema for figurar
+tema=theme_light()
+tema$panel.grid.minor$colour="white"
+tema$strip.background$fill=colPrim[6]
+tema$strip.background$colour=colPrim[5]
+tema$strip.text.x$colour="black"
+tema$panel.border$colour=colPrim[6]
+tema$panel.grid.major$colour="#cccccc"
+tema$panel.grid.minor$colour="#eeeeee"
+tema$axis.title.y=element_text(angle=0)
+@
+
+<<mfrdata, echo=kjeldekode, results='hide'>>=
+# Hent inn oppdaterte data om misdanningar frå Medisinsk fødselsregister
+# (Prøver å tolka ut dataa frå HTML-koden på nettsida. Det er alltid ein
+# risiko for at dette feilar, då MFR når som helst kan endra på datastrukturen,
+# men det er det beste me kan gjera så lenge dei ikkje har eit standardisert API.)
+mfr_adresse=paste0("http://mfr-nesstar.uib.no/mfr/velocity?headers=fodselstidspunkt_aar&headers=dodstidspunkt_3_kat&headers=fodt_mfr_m1&dodstidspunkt_3_katsubset=0000%2C1+-+3&measure=common&gzip=false&study=http%3A%2F%2F129.177.219.12%3A80%2Fobj%2FfStudy%2Fm1_medfodte_misdannelser&virtualsubset=aanenceph_value+-+atranspos_store_kar_value&v=2&mode=cube&fodt_mfr_m1subset=0000&cube=http%3A%2F%2F129.177.219.12%3A80%2Fobj%2FfCube%2Fm1_medfodte_misdannelser_C1&stubs=virtual&fodselstidspunkt_aarsubset=2010+-+",fødselsår,"&virtualslice=aid_value&fodselstidspunkt_aarslice=2010&dodstidspunkt_3_katslice=0000&fodt_mfr_m1slice=0000&measuretype=4")
+# (Merk at historiske data også kan endra seg, så me hentar alltid inn oppdaterte data for alle år.)
+mfr_dato=Sys.Date() # Datoen tala sist vart henta inn.
+mfr_dato_form=format(as.Date(mfr_dato), "%d.~%B %Y")
+
+# Les inn nettsida og hent ut datatabellen
+mfr_samband=file(mfr_adresse, encoding="UTF-8")       # Opprett samband til nettsida, med rett teiknkoding
+mfr_side=paste(readLines(mfr_samband), collapse="\n") # Hent inn HTML-teksten på nettsida
+close(mfr_samband)                                    # Lukk sambandet
+mfr_html=rvest::html(mfr_side)                        # Tolk HTML-koden
+mfr_tab=html_node(mfr_html, "table#tabell")           # Hent ut datatabellen
+mfr_tab_data=removeChildren(mfr_tab, kids=1:4)        # Fjern dei fire overskriftsradene
+mfr_fdata=html_table(mfr_tab_data, header=FALSE)      # Gjer om til R-dataramme
+
+# Lag fornuftige kolonneoverskrifter
+names(mfr_fdata)=c("MMType",paste(rep(2010:(2009+(ncol(mfr_fdata)-1)/4), each=4),
+                              c("totalt", "levandefødt", "dødfødt", "abortert"), sep="."))
+
+# Fjern usynlege teikn i tekststrengane
+mfr_fdata$MMType=str_replace_all(mfr_fdata$MMType, "[^A-Za-zÆØÅæøå .,]", "")
+
+# Fjern mellomrom frå talstrengar, og gjer strengane om til ekte tal
+mfr_fdata[,-1] = lapply(mfr_fdata[,-1], function(x) as.numeric(str_replace_all(x, pattern="[^0-9]", replacement="")))
+
+# Restrukturer dataa til eit format som kan brukast nokolunde lett
+mfr_fdata=reshape2::melt(mfr_fdata, id="MMType")
+mfr_fdata=transform(mfr_fdata, år=gsub("\\..+", "", variable),
+                    kategori=gsub(".*\\.", "", variable))
+mfr_fdata$value=as.numeric(gsub(" ", "", mfr_fdata$value))
+mfr_fdata=reshape2::dcast(mfr_fdata, år+MMType~kategori)
+@
+
+
+<<lesfiler, echo=kjeldekode, results='hide'>>=
+# Plassering av, og namn på, datafiler
+grunnmappe="\\\\ihelse.net\\Kvalitetsregister\\HBE\\2012-04461\\registeruttrekk\\"
+
+# Finn mappa til det nyaste registeruttrekket (basert på datoen i mappenamnet)
+dato_uttrekk=as.Date(sort(list.dirs(grunnmappe, recursive=FALSE, full.names=FALSE), decreasing=TRUE)[1])
+mappe=paste0(grunnmappe, dato_uttrekk, "\\")
+filer=c("NursingFirstDischarges.csv",
+        "PlasticSurgeryAll.csv",
+        "NursingLipPalate.csv",
+        "NursingAllDischarges.csv",
+        "OrthodonticSixYears.csv")
+
+#### Les inn datafiler ####
+
+d.inn=read.csv2(paste0(mappe, filer[1]))    # Første innlegging
+d.alleop=read.csv2(paste0(mappe, filer[2])) # Alle operasjonar
+d.lglukk=read.csv2(paste0(mappe, filer[3])) # Leppe- og ganelukking
+d.ut=read.csv2(paste0(mappe, filer[4]))     # Alle utskrivingar
+
+## Forklaring på datofelta
+# OpprettetDato                         Intern MRS             Fyrste gong skjemaet vart lagra
+# KontaktFraDato                        Intern MRS             Typisk lik datoen over
+# KontaktTilDato                        Intern MRS             Ikkje i bruk(?)
+# Fradato                               Intern MRS             Ikkje i bruk(?)
+# Tildato                               Intern MRS             Ikkje i bruk(?)
+# RegistrationTime                      LKG reg                Parameter for variabel Dato for undersøkelsen
+#                                                              (i fleire skjema)
+# Updated                               Intern MRS             Sist skjemaet vart endra (lagra)
+# SorteringsParameterVerdi              Intern MRS             Brukt dersom det i pasientoversikten skal
+#                                                              sorterast på registerspesifikk dato
+#                                                              (for eksempel Dato for undersøkelse)
+# PlasticSurgeryAllOperationDate        LKG reg                Parameter for variabel Operasjonsdato
+#                                                              (i Platikkkirurgi – Alle operasjoner skjemaet)
+# NursingAllDischargesTimeOfRecording   LKG reg                Parameter for variabel Dato for undersøkelsen
+#                                                              for skjema Sykepleie – Alle utskrivelser
+#                                                              (‘…Time ofRecording’ òg brukt i andre skjema
+#                                                              med anna suffiks)
+# BirthDate                             LKG reg                Fødselsdato (skjult felt i skjemaene) 
+@
+
+
+<<filtrerdata, echo=kjeldekode, results='hide'>>=
+# Handter datotekst som dato
+d.inn$fdato=as.Date(d.inn$BirthDate, format="%d.%m.%Y")
+d.alleop$fdato=as.Date(d.alleop$BirthDate, format="%d.%m.%Y")
+d.lglukk$fdato=as.Date(d.lglukk$BirthDate, format="%d.%m.%Y")
+d.ut$fdato=as.Date(d.ut$BirthDate, format="%d.%m.%Y")
+
+# Legg til leiande nullar i kommunenummeret, slik at det vert fire siffer
+d.inn$komm=formatC(d.inn$MothersResidenceBeforeBirth, width=4, flag="0")
+
+# Kommunesamanslåing o.l.
+d.inn$komm[d.inn$komm=="1729"]=1756 # Nye Inderøy (Inderøy etter samanslåing med Mosvik)
+d.inn$komm[d.inn$komm=="1901"]=1903 # Nye Harstad (Hardstad etter samanslåing med Bjarkøy)
+d.inn$komm[d.inn$komm=="1503"]=1505 # Nye Kristiansund (Kristiansund etter samanslåinga med Frei)
+d.inn$komm[d.inn$komm=="1556"]=1505 # Nye Kristiansund (Frei etter samanslåinga med Kristiansund)
+
+# Hent ut dei pasientane som vart fødde det aktuelle året
+d.inn.akt=subset(d.inn, year(fdato)==fødselsår)
+d.alleop.akt=subset(d.alleop, year(fdato)==fødselsår)
+d.lglukk.akt=subset(d.lglukk, year(fdato)==fødselsår)
+d.ut.akt=subset(d.ut, year(fdato)==fødselsår)
+
+# Kor mange pasientar har me totalt?
+n.pasientar=length(unique(c(d.inn.akt$PasientId, d.alleop.akt$PasientId,
+                            d.lglukk.akt$PasientId, d.ut.akt$PasientId)))
+@
+
+<<datasjekk, echo=kjeldekode>>=
+# Nødløysing for årsrapporten for 2013 for å fjerna
+# duplikatskjema for pasient
+if( (fødselsår==2012) & (Sys.Date() <= as.Date("2014-11-10"))) {
+  d.inn.akt=d.inn.akt[!duplicated(d.inn.akt$PasientId),]
+}
+
+# Er det nokon pasientar som vart lagt inn for første gong meir enn éin gong?
+if( any(table(d.inn.akt$PasientId) > 1) ) {
+  stop("Pasient innlagt for første gong meir enn éin gong")
+}
+@
+
+% Fristar: http://helsedirektoratet.no/publikasjoner/behandlingslinje-for-barn-og-ungdom-med-leppe-kjeve-ganespalte/Publikasjoner/Behandlingslinje%20for%20LKG-frister.pdf
+
+\chapter{Sammendrag}
+
+Denne årsrapporten for Norsk kvalitetsregister for leppe-kjeve-ganespalte
+(\kort{LKG}-spalte) presenterer oversikt over barn som var født i \Sexpr{fødselsår}
+og som har vært til kirurgisk behandling for \kort{LKG}-spalten fram til
+\Sexpr{format(dato_uttrekk, format="%d.%m.%Y")}.
+Det er registrert totalt \Sexpr{n.pasientar} pasienter i registeret i denne perioden.
+
+Data fra sykepleiernes og plastikkirurgenes registreringer blir presentert i rapporten.
+De to plastikk\dbind kirurgiske avdelingene ved Haukeland universitetssjukehus
+og Oslo universitetssykehus har delt nasjonalt behandlingsansvar for denne pasientgruppen.
+
+Under arbeidet med årsrapporten har det kommet fram svikt i rutinene for
+registrering ved Oslo universitetssykehus, som har medført betydelig etterarbeid
+med innhenting av data.
+
+Viktige resultat fra analyser av data:
+
+\begin{itemize}
+\item Pasientenes første operasjon blir utført i det tidsrommet som de to norske
+behandlingsteamenes anbefaler. Når sju av pasientene hadde første operasjon
+tidligere eller senere enn dette, var det medisinske årsaker til dette.
+
+\item Foreldrene opplevde at informasjonen som ble gitt før operasjonen var god eller meget god
+i \Sexpr{round(100*mean(d.ut.akt$InformationBeforeOperation %in% 4:5))}\prosent
+av tilbakemeldingene som ble gitt ved utskrivelses\-tidspunktet. De rapporterte også sine
+opplevelser av smertebehandlingen barnet fikk i forbindelse med operasjonen, og den var
+god eller meget god i \Sexpr{round(100*mean(d.ut.akt$PainTherapyAfterOperation %in% 4:5))}\prosent
+av tilbakemeldingene.
+\end{itemize}
+
+Plan for forbedringstiltak:
+
+\begin{itemize}
+\item Oslo universitetssykehus må få bedre rutiner for innhenting og registrering av data.
+\item Statped-intitusjonene må bli tilknyttet Norsk Helsenett for at logopedene skal
+      kunne levere data fra og med 1.~januar 2015 (for 4-åringer født i 2011).
+\item Nytt registreringssystem er planlagt innført i 2015. Dette bør gi
+      bedre datakvalitet.
+\item Det må bli mer bruk av data i forskning- og kvalitetssikringsprosjekt.
+      Faggruppene må oppmuntres til å ta i bruk data fra registeret.
+\end{itemize}
+
+\smallskip
+\forfattarliste
+
+\chapter{Registerbeskrivelse}\label{cha:reg}
+
+\section{Bakgrunn og formål}
+\subsection{Bakgrunn for registeret}\label{sec:bak}
+
+Norske helsemyndigheter sentraliserte på 80-tallet den kirurgiske behandlingen av pasienter med
+leppe-kjeve-ganespalte~\kort{(LKG)} til de to plastikk\dbind kirurgiske avdelingene ved
+Haukeland universitetssjukehus~\kort{(HUS)} og Oslo universitetssykehus~\kort{(OUS)}. Disse fikk et flerregionalt
+ansvar for behandlingen, organisert i flerfaglige team. I~oktober 2007 fikk Helse Vest
+og Helse Sør-Øst i oppdrag fra Helse- og omsorgsdepartementet å opprette et nasjonalt
+kvalitetsregister for leppe-kjeve-ganespalte\footnote{Se brev fra Helse-
+og omsorgsdepartementet 02.10.2007 til Helse Sør-Øst og Helse Vest, samt svarbrev
+fra Helse Vest 30.11.2007. Hos Helse Bergen: sak~2007/4145, dokument 1 og 2.}.
+
+Konsesjon fra Datatilsynet ble gitt oktober~2010 (se~\vref{sec:jur}).
+Datainnsamling startet 1.~januar 2011, med inklusjon av barn med leppe-kjeve-gane\-spalte
+henvist til kirurgisk behandling. Barn født fra og med denne dato blir invitert til deltagelse. 
+
+\subsection{Beskrivelse av pasientgruppen}
+
+Leppe-kjeve-ganespalte er den vanligste medfødte misdannelsen i hode- og
+halsregionen, og opptrer hos cirka 2 av 1\,000 levendefødte. Operasjonstidspunkt
+og antall operasjoner bestemmes av spaltetype og barnets vekst og generelle
+utvikling. Behov for behandling og oppfølging varierer ut fra pasientens problemstilling
+og grad av avvik, og alle faggrupper lager en individuell behandlingsplan.
+
+Registeret samler data fra alle kirugiske behandlinger som gjøres fra barnet er nyfødt og opp til voksen
+alder. Det registreres i tillegg tverrfaglige data fra kontroller ved bestemte alderstrinn for
+å kunne følge barnets/ungdommens utvikling og vekst.
+
+\subsection{Registerets formål}\label{sec:for}
+
+Formålet med registeret er
+
+\begin{itemize}
+\item Å sikre barn født med leppe-kjeve-ganespalte best mulig
+      behandling og oppfølging. 
+\item Å sikre entydig registrering og datainnsamling fra behandlingen av
+      pasienter med \kort{LKG} i Norge.
+\item At behandlingsteamene skal kunne holde oversikt over egne resultater
+      (ønskede og uønskede) og bruke informasjonen til forbedringsarbeid.
+\item Å registrere om pasientgruppen og foresatte føler seg ivaretatt.
+\item Å legge til rette for å kunne sammenligne behandling og resultat
+      mellom behandlingsteam. 
+\item Å legge til rette for forskning.
+\end{itemize}
+
+\section{Juridisk hjemmelsgrunnlag}\label{sec:jur}
+
+Datatilsynet har gitt konsesjon for opprettelse av det sentrale
+registeret\footnote{Konsesjonen er gitt 20.10.2010, med utdyping 31.05.2011.
+Hos Datatilsynet: sak~2009/1462,
+dokument \href{https://oep.no/search/resultSingle.html?journalPostId=680710}{2}
+og \href{https://oep.no/search/resultSingle.html?journalPostId=1887964}{16}.}.
+Krav satt er blant annet skriftlig samtykke fra foresatte, fornyet samtykke
+fra pasienten ved 16 års alder, og at institusjonene som leverer data til registeret
+kun har tilgang til egne data. Samtykket kan innhentes av ett av
+medlemmene i behandlingsteamet på vegne av alle faggruppene/institusjonene i teamet.
+
+\section{Faglig ledelse og databehandlingsansvar}\label{cha:led}
+
+De to behandlingsteamene for leppe-kjeve-ganespalte i Norge har det faglige ansvaret for registeret.
+Klinikkdirektør for Kirurgisk klinikk, Haukeland universitetssjukehus er registeransvarlig/databehandlingsansvarlig.
+
+Styringsgruppens medlemmer er:
+
+% Fixme: Bør finna ei betre løysing for formatering her
+{\medskip\noindent\setlength{\tabcolsep}{4pt}
+\newcommand{\tabover}[1]{\multicolumn{2}{@{}l}{\rmfamily\textit{#1}}\tabularnewline}
+\begin{tabularx}{\textwidth}{@{}>{\rmfamily\raggedright}p{.37\linewidth} >{\rmfamily\raggedright}p{.58\linewidth}}
+\tabover{Osloteamet}
+Charles Filip & Plastikkirurg, overlege og forsker ved spalteteamet ved Oslo universitetssykehus \tabularnewline
+Jorunn Skartveit Lemvik & Logoped ved Statped sørøst \tabularnewline
+Kristin Billaud Feragen (vara) & Psykolog ved Statped sørøst \\ \tabularnewline[\medskipamount]
+
+\tabover{Bergensteamet}
+Hallvard Vindenes & Plastikkirurg, avdelingsoverlege og leder ved spalteteamet i Bergen \tabularnewline
+Gry Jacobsen (vara) & Spesialsykepleier ved barneklinikken, Haukeland universitetssjukehus \tabularnewline[\medskipamount]
+
+\tabover{Norsk plastikkirurgisk forening} 
+Elisabeth Sætnan & Plastikkirurg ved St. Olavs hospital og representant for Norsk plastikkirurgisk forening \tabularnewline[\medskipamount]
+
+\tabover{Forskning- og lederkompetanse utenfor det aktuelle miljøet}
+Astanand Jugessur & Seniorforsker og genetisk epidemiolog ved Nasjonalt folkehelseinstitutt \tabularnewline
+Gabriella Jurisic Ottesen & Leder for pasientforeningen \tabularnewline[\medskipamount]
+
+\tabover{Registeradministrasjonen}
+Åse Sivertsen & Daglig leder, plastikkirurg, overlege og forsker ved Haukeland universitetssjukehus \tabularnewline
+Åsa Rommetveit Remme & Koordinator, spesialsykepleier og spesialrådgiver ved Haukeland universitetssjukehus \tabularnewline
+\end{tabularx}}
+
+\subsection{Aktivitet i styringsgruppe/referansegruppe}
+
+I 2013 hadde styret to møter, 16.01.2013 i Bergen og 21.08.2013 i Oslo. De viktigste sakene var:
+
+\begin{itemize}
+  \item Bedre rutiner for innhenting av samtykke ved \kort{OUS} og \kort{HUS},
+        også for å fange opp fremmedspråklige og barn som ikke er født i Norge.
+  \item Rutiner for oppfølging av gravide som har fått informasjon
+        om at barnet har leppe-kjeve-ganespalte ved ultralyd\-undersøkelse i svangerskapet.
+  \item Behov for mer ressurser til registerarbeid ved de institusjonene
+        som leverer data, spesielt for \kort{OUS}.
+  \item Bekymring for Statpeds forsinkede oppkobling til Norsk Helsenett.
+  \item Svakheter ved rapportfunksjonen i \kort{MRS} (manglet kodebok og nøkkel-\kort{ID}).
+  \item Oppgradering av \kort{LKG}-registeret til ny plattform i \kort{MRS} (versjon 2.2)
+\end{itemize}
+
+
+
+\chapter{Resultater}\label{cha:res}
+
+Denne årsrapporten presenterer resultater for barn født \Sexpr{fødselsår},
+basert på data registrert fra og med 01.01.\Sexpr{fødselsår} til og med
+\Sexpr{format(dato_uttrekk, format="%d.%m.%Y")}.
+Antallet pasienter som presenteres
+i de ulike tabeller og figurer kan variere noe, grunnet
+ufullstendig utfylling av registreringsskjema\footnote{Se \vref{tab:skjemaoversikt} for
+oversikt over antall pasienter som er registrert i hvert skjema. I tillegg vil det
+være enkeltspørsmål i skjema som ikke er utfylt.}.
+%Noen av figurene viser dette årskullet
+%sammen med foregående årskull som er inkludert i \kort{LKG}-registeret.
+Figurer og
+tabeller i denne rapporten bruker standard\-forkortelser for spaltetype, forklart i \vref{tab:spaltekoder}.
+
+\begin{table}[htbp]
+\caption{Oversikt over spaltetyper, med standard forkortelser. Det er tre hoved\-grupper spalter,
+og undergrupper av disse er oppført med innrykk.\label{tab:spaltekoder}} 
+{\centering %
+\setlength{\tabcolsep}{5pt} % Redusert kolonnemellomrom for å få plass til tabellen (standardverdi 6pt)
+\begin{tabular}{lll}
+\toprule
+Kode & Engelsk navn & Norsk navn\\
+\midrule
+CLO & cleft lip only & leppespalte \\
+\quad BCLO & bilateral CLO & dobbeltsidig leppespalte \\
+CPO & cleft palate only & ganespalte \\
+CLP & cleft lip and palate & leppe- og ganespalte \\
+\quad BCLP & bilateral CLP & dobbeltsidig leppe- og ganespalte \\
+\quad UCLP & unilateral CLP & enkeltsidig leppe- og ganespalte \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+
+<<spalteinfo, echo=kjeldekode, results='hide'>>=
+# Hent ut informasjon om spaltetype (basert på førsteoperasjon)
+
+# Legg til informasjon om operasjonsdato og tid til første operasjon
+d.alleop.akt=mutate(d.alleop.akt,
+                    opdato=as.Date(d.alleop.akt$PlasticSurgeryAllOperationDate, format="%d.%m.%Y"),
+                    tidtilop=as.numeric(difftime(opdato, fdato, "days"))
+)
+
+# Kodar for ulike type LKG (femsiffer-systemet heiter LAPAL-systemet)
+d.alleop.akt=mutate(d.alleop.akt, clo=((FiveDigitCleftCode1 > 0) | (FiveDigitCleftCode5 > 0)) & (FiveDigitCleftCode3 == 0),
+                 bclo=(FiveDigitCleftCode1 > 0) & (FiveDigitCleftCode5 > 0) & (FiveDigitCleftCode3 == 0),
+                 cpo=(FiveDigitCleftCode3 > 0) & ((FiveDigitCleftCode1+FiveDigitCleftCode2+FiveDigitCleftCode4+FiveDigitCleftCode5) == 0),
+                 clp=(FiveDigitCleftCode3 > 0) & ((FiveDigitCleftCode1 > 0) | (FiveDigitCleftCode5 > 0)),
+                 bclp=(FiveDigitCleftCode3 > 0) & (FiveDigitCleftCode1 > 0) & (FiveDigitCleftCode5 > 0),
+                 uclp=clp & !bclp
+                 )
+
+# Hent ut data for *første* operasjon av kvar pasient
+d.forsteop.akt=arrange(d.alleop.akt, PasientId, opdato)
+d.forsteop.akt=d.forsteop.akt[!duplicated(d.forsteop.akt$PasientId),]
+
+# Er det nokon som ikkje har enten CPO, CLO, UCLP eller BCLP på første operasjon (burde vera umogleg)
+if( nrow(subset(d.forsteop.akt, cpo+clo+uclp+bclp==0)) > 0) {
+  stop("Finst pasient(ar) som ikkje har enten CPO, CLO, UCL eller BCLP på første operasjon")
+}
+
+# Nokre har fleire operasjonar og ulike LAPAL-kodar på ulike operasjonar.
+# Éin manglar heilt LAPAL-kode.
+# Sjå på desse.
+hent_lapal_stat=function(df, lkgvar=c("clo","bclo","cpo","clp","bclp","uclp")) {
+  lkgverdiar=df[lkgvar]
+  operasjonar=nrow(df)
+  lkgtypar=unlist(alply(lkgverdiar, 1, function(x) lkgvar[unlist(x)]))
+  spaltetype=toupper(paste(sort(unique(c(lkgtypar))), collapse=", "))
+  data.frame(operasjonar, spaltetype)
+}
+res=ddply(d.alleop.akt, .(PasientId), hent_lapal_stat)
+res=arrange(res, -operasjonar, spaltetype)
+res
+
+# Finn informasjon om spaltetype for kvar pasient
+spalteinfo=ddply(d.forsteop.akt, .(PasientId),
+                             hent_lapal_stat, lkgvar=c("clo","cpo","uclp","bclp"))
+
+# Meir naturleg sortering av spaltetypenivåa
+spaltetypar=c("CLO", "CPO", "UCLP", "BCLP", "")               # Tom streng er dei som har 00000 som LAPAL-kode
+spaltetypar.langnamn=c("CLO", "CPO", "UCLP", "BCLP", "Annen") # Finst spaltetypar som ikkje kan skildrast med LAPAL-kode.
+                                                              # Set desse til «Annen» (vert betre i nytt MRS-system)
+# if( any(spalteinfo$spaltetype=="") ) {
+#  stop("Finst pasient(ar) utan registrert spaltetype på første operasjon")
+# }
+spalteinfo$spaltetype=factor(spalteinfo$spaltetype, levels=spaltetypar, labels=spaltetypar.langnamn)
+@
+
+
+\section{Geografisk fordeling}\label{sec:geodist}
+
+<<reshkopling, echo=kjeldekode, results='hide'>>=
+# Koplingsnøkkel ReshID og behandlingsstad
+plassar=data.frame(ReshId=c(102212,104344,104794,700364,700382,700923),
+                   plass=c("Hemit","Bergen","Bergen","Oslo","Oslo","Bergen"))
+
+# Legg til info om behandlingsstad
+d.inn.akt$plass=plassar$plass[match(d.inn.akt$ReshId, plassar$ReshId)]
+
+# Rekn ut kor mange som vart lagt inn i Bergen og kor mange i Oslo
+n.inn=length(unique(d.inn.akt$PasientId)) # Unike pasientar
+n.bergen=sum(d.inn.akt$plass=="Bergen")   # Obs! Reknar med ev. duplikatpasientar fleire gongar
+n.oslo=sum(d.inn.akt$plass=="Oslo")       # Ditto
+if( n.inn != (n.bergen + n.oslo)) {
+  stop(paste("Talet på pasientar til saman er ikkje lik talet på pasientar",
+             "i Bergen + talet på pasientar i Oslo (har nokon fylt ut skjemaet fleire gongar?)"))
+}
+@
+
+I den aktuelle perioden var \Sexpr{n.inn} pasienter operert for \kort{LKG},
+\Sexpr{n.oslo} (\Sexpr{round(100*n.oslo/n.inn)}\prosent) ved \kort{OUS}
+og \Sexpr{n.bergen} (\Sexpr{round(100*n.bergen/n.inn)}\prosent) ved \kort{HUS}%
+\footnote{For resultatene i dette avsnittet er all informasjon om behandlingssted 
+basert på skjemaet som fylles ut ved \emph{første} innleggelse, selv om
+oppfølgings\-undersøkelser/operasjoner i noen (få) tilfeller kan skje ved andre
+institusjoner.}.
+Se \vref{tab:geospalte} for fordeling av spaltetype på behandlingssted
+og \vref{fig:plasskart} for geografisk fordeling av pasientene basert på mors
+bokommune før barnets fødsel.
+
+<<geospalte, echo=kjeldekode, results='asis'>>=
+# Fordeling av spaltetypar på behandlingsstad
+# Legg først til info om spaltetype
+d.geospalte=join(d.inn.akt, spalteinfo, by="PasientId", type="left") # Kuttar ut dei som manglar innleggingsskjema
+
+# Oppgje manglande diagnose (eller LAPAL-kode 00000) som «Ukjent»
+d.geospalte$spaltetype=factor(d.geospalte$spaltetype, levels=c(levels(d.geospalte$spaltetype), "(Ukjent)"))
+d.geospalte$spaltetype[d.geospalte$spaltetype=="" | is.na(d.geospalte$spaltetype=="")]="(Ukjent)"
+d.geospalte$spaltetype=droplevels(d.geospalte$spaltetype)
+
+# Lag krysstabell
+tab_geospalte=addmargins(with(d.geospalte, tab(plass, spaltetype)))
+
+# Formater som LaTeX-tabell
+latex(tab_geospalte, file="", center="centering", title="Sted",
+      caption=paste0("Fordeling av spaltetype på behandlingssted for barn født i~",fødselsår,
+                     ". «Annen» viser til annen type ansiktspalte enn leppe-kjeve-ganespalte."),
+      label="tab:geospalte",
+#      collabel.just=c("l", rep("r", ncol(inklusjonsgrad)-1)),
+#      col.just=c("l", rep("r", ncol(inklusjonsgrad)-1)),
+       where="htbp", booktabs=TRUE, numeric.dollar=FALSE)
+@
+
+
+<<kommunedata, echo=kjeldekode, results='hide'>>=
+# Skal laga kart over mors heimekommune og spaltetype
+
+# Legg til info om spaltetype
+d.kart=join(d.inn.akt, spalteinfo, by="PasientId", type="left")
+
+# Fjern pasientar der me manglar kommunenummer, eller nummeret viser til utanlandsadresse
+d.kart=subset(d.kart, !is.na(komm) & komm != "9999" & komm != "0000")
+
+# Fjern pasientar der me manglar informasjon om spaltetype
+d.kart=subset(d.kart, !is.na(spaltetype))
+
+# Slå saman UCLP og BCLP (sidan det er så få BCLP)
+d.kart$spaltetype=recode(d.kart$spaltetype, 'c("UCLP","BCLP")="CLP"')
+
+# Fjernar «Annen» spaltetype (av anonymitetomsyn)
+d.kart=subset(d.kart, spaltetype!="Annen")
+
+# Hent inn kommunekart og noregskart
+library(rgdal)
+library(rgeos)
+komm=readOGR("h:/kvalreg/felles/kart", "kommunar")
+noreg.enkel = readOGR("h:/kvalreg/felles/kart", "noreg-forenkla")
+
+# Plott norgeskartet
+# plot(noreg.enkel, col="#fff6d5", border="#ffeeaa", bg="#d7e3f4")
+
+# Er det kommunenummer som ikkje finst i kommunekartet?
+d.ulkart=subset(d.ultralyd.akt, !is.na(komm) & komm != "9999" &
+                  komm != "0000" & ultralyd != "(Ukjent)" & !is.na(ultralyd))
+
+lkg_komm=d.inn$komm[!is.na(d.inn$komm) & d.inn$komm != "9999" & d.inn$komm != "0000"]
+manglar=lkg_komm %nin% komm$komm
+if(any(manglar)) {
+  stop("Ugyldig(e) kommunenummer (kommunesamanslåing?): ", paste(lkg_komm[manglar], sep=", "))
+}
+
+##### Legg til aktuelle punkt i kvar kommune
+
+# Lag tilfeldige koordinatpar for ein kommune
+#   Inn: vektor med n like kommunenummer
+#    Ut: dataramme med n tilfeldige koordinatpar i kommunen
+lag.tilf.pos=function(kommnr) {
+  n=length(kommnr)
+  komm.akt=komm[komm$komm==kommnr[1],]   # Hent ut polygon til aktuell kommune
+  # Plukk tilfeldig punkt
+  repeat{ # Sikra at me får minst n koordinatpar (jf. ?spsample)
+    punkt=spsample(komm.akt, n, type="random", iter=100)
+    punkt=setNames(as.data.frame(coordinates(punkt)), c("x","y"))
+    if(nrow(punkt) >= n) break
+  }
+  punkt[1:n,] # Returner dei aktuelle punkta
+}
+
+# Legg til tilfeldige koordinatar i heimkommunen til kvar pasient
+d.kart=ddply(d.kart, .(PasientId), transform,
+             koord=lag.tilf.pos(komm), .progress="text")
+
+# Gjer om kartet til format ggplot forstår
+noreg.gg=fortify(noreg.enkel)
+
+# Diagnosekart
+spaltetype.hgrupper=c("CLO","CPO","CLP") # Hovudgrupper, i ei fornuftig rekkjefølgje
+d.kart$spaltetype=factor(d.kart$spaltetype, levels=spaltetype.hgrupper)
+gg.noregskart = ggplot(aes(x = long, y = lat, group = group), data = noreg.gg) +
+  geom_polygon(colour="#ece1bc", fill="#f6f4e3", size=.2) + coord_equal()
+kart.diag = gg.noregskart +
+  geom_point(aes(x=koord.x, y=koord.y, colour=spaltetype, shape=spaltetype, group=1), data=d.kart, size=3) +
+  facet_wrap(~plass) +
+  scale_colour_brewer("Spaltetype", palette="Set2") +
+  scale_shape_manual("Spaltetype", values=c("CLO"=1, "CPO"=2, "CLP"=3)) +
+#        annotate("text", x=max(noreg.gg$long), y=min(noreg.gg$lat), label=kreditering, hjust=1) +
+  theme_minimal(base_size=20) + theme(legend.position=c(.85,.25), plot.margin=unit(c(0,0,0,0),"mm"),
+                                      panel.grid.major = element_line(colour=NA),
+                                      panel.grid.minor = element_line(colour = NA),
+                                      panel.background = element_rect(colour = NA),
+                                      rect = element_rect(fill = "transparent"))+
+  scale_x_continuous(breaks=NULL, expand=c(0.01,0)) +
+  scale_y_continuous(breaks=NULL, expand=c(0.01,0)) + labs(x=NULL, y=NULL)
+
+plasskart.figurtekst=paste0("Geografisk tilhørighet
+                            for barn født i ", fødselsår, ", fordelt på behandlingssted
+                            og spaltetype. Tilhørighet er basert på informasjon
+                            om mors bokommune, og punktene er tilfeldig plassert
+                            innen hver kommune. Basert på data om ", nrow(d.kart),
+                            " pasienter. Kartgrunnlag © Kartverket.") # http://kartverket.no/Kart/Gratis-kartdata/Lisens/
+@
+
+<<plasskart, echo=kjeldekode, fig.cap=plasskart.figurtekst, fig.height=4.8>>=
+kart.diag
+@
+
+
+\section{Diagnose ved ultralyd i svangerskapet}\label{sec:ultralyd}
+
+\Vref{tab:ultralyd} viser oversikt over i hvor mange tilfeller mødrene
+ble informert om \kort{LKG}-diagnosen ved ultralydundersøkelse i svangerskapet.
+\Vref{fig:ultralydkart} viser bokommunen før fødselen.
+
+<<ultralyd, echo=kjeldekode, results='asis'>>=
+# Skal laga oversikt over kven som har fått ultralyd i svangerskapet
+# Legg først til spaltetype for kvar pasient i sjukepleierskjemaet
+d.ultralyd.akt=join(d.inn.akt, spalteinfo, by="PasientId", type="full")
+
+# Dei som manglar sjukepleierskjema tolkar me lik som dei som har
+# ultralyd oppgitt som 0 (dvs. ikkje fylt ut nokon verdi)
+# (merk at dette er forskjellig frå «Vet ikke», som er verdi 9)
+d.ultralyd.akt=mutate(d.ultralyd.akt,
+                      DiagnosisPrenatalUltrasound=
+                        ifelse(is.na(DiagnosisPrenatalUltrasound), 0, DiagnosisPrenatalUltrasound))
+
+# Manglade operasjonsskjema (dvs. manglande spaltetype) tolkar
+# me som «(Ukjent)»
+levels(d.ultralyd.akt$spaltetype)=c(levels(d.ultralyd.akt$spaltetype), "(Ukjent)")
+d.ultralyd.akt$spaltetype[is.na(d.ultralyd.akt$spaltetype)]="(Ukjent)"
+
+d.ultralyd.akt$ultralyd=factor(d.ultralyd.akt$DiagnosisPrenatalUltrasound, levels=c(1,2,9, 0),
+                               labels=c("Ja", "Nei", "Vet ikke", "(Ukjent)"))
+tab_ultralyd=with(d.ultralyd.akt, addmargins(tab(ultralyd, spaltetype)))
+
+# Formater som LaTeX-tabell
+latex(tab_ultralyd, file="", center="centering", title="Ultralyd",
+      caption=paste0("Diagnose med ultralyd i svangerskapet for pasienter født i~",fødselsår,
+                     ". «Vet ikke» betyr at moren har oppgitt at hun ikke vet
+                     om barnet ble diagnostisert med ultralyd, mens «(Ukjent)»,
+                     betyr at spørsmålet ikke er besvart."),
+      label="tab:ultralyd",
+#      collabel.just=c("l", rep("r", ncol(inklusjonsgrad)-1)),
+#      col.just=c("l", rep("r", ncol(inklusjonsgrad)-1)),
+       where="htbp", booktabs=TRUE, numeric.dollar=FALSE)
+@
+
+
+<<ultralydkart_gen, echo=kjeldekode, results='hide'>>=
+# Sjå berre på dei pasientane der me har informasjon om kommune og ultralyd
+d.ulkart=subset(d.ultralyd.akt, !is.na(komm) & komm != "9999" &
+                  komm != "0000" & ultralyd != "(Ukjent)" & !is.na(ultralyd))
+
+d.ulkart=ddply(d.ulkart, .(PasientId), transform,
+             koord=lag.tilf.pos(komm), .progress="text")
+
+kart.ultralyd=gg.noregskart +
+  geom_point(aes(x=koord.x, y=koord.y, colour=ultralyd, shape=ultralyd, group=1), data=d.ulkart, size=3) +
+  scale_colour_brewer("Diagnose ved ultralyd", palette="Set2") +
+  scale_shape_manual("Diagnose ved ultralyd", values=c(Ja=1, Nei=3)) +
+#        annotate("text", x=max(noreg.gg$long), y=min(noreg.gg$lat), label=kreditering, hjust=1) +
+  theme_minimal(base_size=20) + theme(legend.position=c(.85,.25), plot.margin=unit(c(0,0,0,0),"mm"),
+                                      panel.grid.major = element_line(colour=NA),
+                                      panel.grid.minor = element_line(colour = NA),
+                                      panel.background = element_rect(colour = NA),
+                                      rect = element_rect(fill = "transparent"))+
+  scale_x_continuous(breaks=NULL, expand=c(0.01,0)) +
+  scale_y_continuous(breaks=NULL, expand=c(0.01,0)) + labs(x=NULL, y=NULL)
+
+ulkart.figurtekst=paste0("Om mor ble informert om spaltediagnosen før barnets fødsel.
+                          Figuren fremstiller data fra ", nrow(d.ulkart),
+                        " pasienter. Kartgrunnlag © Kartverket.") # http://kartverket.no/Kart/Gratis-kartdata/Lisens/
+@
+
+<<ultralydkart, echo=kjeldekode, fig.cap=ulkart.figurtekst, fig.height=4.8>>=
+kart.ultralyd
+@
+
+\section{Slektninger med leppe-kjeve-ganespalte}
+
+Før første operasjon oppgir foreldrene om barnet har nære slektninger
+med \kort{LKG}-diagnose. Av \Sexpr{nrow(d.inn.akt)} pasienter har
+\Sexpr{sum(d.inn.akt$CloseRelativesWithLipJawPalate==1,na.rm=TRUE)}
+svart at de har nær slektning med \kort{LKG}, 
+\Sexpr{sum(d.inn.akt$CloseRelativesWithLipJawPalate==2,na.rm=TRUE)}
+har svart at de ikke har det,
+\Sexpr{sum(d.inn.akt$CloseRelativesWithLipJawPalate==9,na.rm=TRUE)}
+har svart «vet ikke» og \Sexpr{sum(is.na(d.inn.akt$CloseRelativesWithLipJawPalate))}
+har ikke svart.
+% Se \vref{tab:lkgslekt} for detaljer.
+
+<<lkgslekt, echo=kjeldekode, results='asis'>>=
+if(FALSE) { # Mellombels utkommentering av tabellen
+# Skal sjå på slektningar med LKG-spalte
+slektvar=c("MotherWithLipJawPalate", "FatherWithLipJawPalate",
+           "TwinWithLipJawPalate", "FullBrothersSistersWithLipJawPalate",
+           "GrandParentsWithLipJawPalate")
+slektvar.skildring=c("Mor","Far","Tvilling","Helsøsken", "Besteforeldre")
+
+# Dataramme for å halda aktuelle variablar
+d.slekt=d.inn.akt
+
+# Sjekk på at det ikkje finst feil i dataa
+if( !all(rowSums(d.slekt[which(d.slekt$CloseRelativesWithLipJawPalate==1), slektvar])>0) ) {
+  stop("Finst pasient som har oppgitt å ha nær slektning med
+      LKG, men har svart nei på alle slektningsalternativa.")
+}
+if( any(rowSums(d.slekt[!which(d.slekt$CloseRelativesWithLipJawPalate==1), slektvar])>0) ) {
+  stop("Finst pasient som har oppgitt ikkje å ha nær slektning med
+      LKG, men har svart ja på minst eitt av slektningsalternativa.")
+}
+
+# Sjå berre på dei som har har svar på spørsmålet
+# (kuttar ut dei som ikkje har svart + dei som
+# har svart «vet ikke»)
+n.slektinfo=sum(d.inn.akt$CloseRelativesWithLipJawPalate %in% 1:2,na.rm=TRUE)
+d.slekt=subset(d.slekt, CloseRelativesWithLipJawPalate==1)[slektvar]
+d.slektres=data.frame(Slektning=c(slektvar.skildring, "Minst én"), Antall=c(colSums(d.slekt),nrow(d.slekt)))
+d.slektres$Prosent=paste0(round(100*d.slektres$Antall/n.slektinfo),"\\prosent")
+
+# Formater som LaTeX-tabell
+latex(d.slektres, file="", center="centering", rowname=NULL,
+      caption=paste0("Antall pasienter som har nære slektninger med \\kort{LKG}-diagnose, for barn født i~",
+                     fødselsår, ". Tabellen fremstiller data fra ",n.slektinfo, " pasienter."),
+      label="tab:lkgslekt",
+      collabel.just=c("l","r","r"),
+      col.just=c("l","r","r"),
+       where="htbp", booktabs=TRUE, numeric.dollar=FALSE)
+}
+@
+
+
+\section{Tid til operasjon}\label{sec:tidtilop}
+
+Etter de norske behandlingsteamenes retningslinjer skal barn som
+er født med leppespalte bli operert ved 3–4 måneders alder og
+barn født med ganespalte bli operert ved 12–14 måneders alder.
+Pasienter som deltar i den internasjonale \kort{TOPS}-studien\footnote{%
+Se nettsiden \url{http://www.tops-trial.org.uk/} for mer informasjon om \kort{TOPS}-studien
+(\emph{Timing of Primary Surgery for Cleft Palate}).}
+blir operert enten ved 6 eller 12 måneders alder. Det skal være medisinsk
+årsak for at tidspunktet for leppe- eller ganelukkingsoperasjon
+forskyves i forhold til dette.
+
+I løpet av \Sexpr{fødselsår} og de første
+månedene av \Sexpr{fødselsår+1} vil altså barna som er født i \Sexpr{fødselsår} ha 
+vært til minst én operasjon; se \vref{fig:opdatograf}.
+% FIXME: Må oppdaterast til neste år.
+Figuren viser at 7 pasienter har første operasjon mer enn 2 måneder
+tidligere eller senere enn forventet etter retningslinjene. Ved nærmere
+ettersyn er det medisinske årsaker til at operasjonstidspunktet er
+forskjøvet for alle disse 7 pasientene.
+
+<<opdato, echo=kjeldekode, results='hide'>>=
+# Legg til info om kva spaltetype det er snakk om
+d.forsteop.akt=join(d.forsteop.akt, spalteinfo, by="PasientId")
+
+# Legg til informasjon om kor mange av kvar spaltetype det var
+levels(d.forsteop.akt$spaltetype)=paste0(levels(d.forsteop.akt$spaltetype),
+                                         " (", table(d.forsteop.akt$spaltetype),
+                                         " ", ifelse(table(d.forsteop.akt$spaltetype)>1, "pasienter", "pasient"), ")")
+
+# Gjer klar til figurtekst
+opdato.figurtekst=paste0("Histogram over tid fra fødsel til \\emph{første} operasjon
+                         (målt i måneder~= 30 dager) for de ", nrow(d.forsteop.akt),
+                         " barna født i ", fødselsår, " som er registrert operert,
+                         fordelt på spaltetype.")
+@
+
+<<opdatograf, echo=kjeldekode, fig.cap=opdato.figurtekst, fig.height=7.8>>=
+# Vis tid til første operasjon fordelt på spaltetype
+tidgraf=qplot(tidtilop/30, data=d.forsteop.akt, binwidth=1, fill=I(colPrim[3])) +
+  facet_wrap(~spaltetype, ncol=1)
+
+# Formatert graf
+breaks_3mnd=function(lims) seq(0, lims[2], 3)                       # Akselinjer kvar tredje månad
+minbreaks_1mnd=function(lims) setdiff(0:lims[2], breaks_3mnd(lims)) # Små akselinjer kvar månad (utanom når ein har hovudlinjer)
+tidgraf + xlab("Tid fra fødsel til første operasjon / måneder (30 dager)") + ylab("Antall\npasienter")+
+  scale_x_continuous(breaks=breaks_3mnd, minor_breaks=minbreaks_1mnd) + tema +
+                     theme(panel.grid.minor.y=element_blank(),
+                          panel.grid.major.y=element_blank(),
+                          panel.margin.y=unit(.75, "lines")) +
+  scale_y_continuous(expand = c(0,0)) +
+  geom_blank(aes(y=1.1*..count..), stat="bin", binwidth=1) # Triks for å få stolpane til å begynna heilt nede
+@
+
+
+
+
+
+\section{Brystmelkernæring}\label{sec:brystmelk}
+
+Ved utreise fra sykehuset etter en \kort{LKG}-operasjon fyller foreldrene ut et skjema der de oppgir
+hvor lenge barnet har fått brystmelkernæring (ved amming eller flaske);
+se \vref{fig:ammeplott}.
+For barna som fikk brystmelkernæring
+ved operasjonstidspunktet vet vi ikke hvor lenge
+disse fortsatte å få det etter operasjonen. Vi har derfor lite
+informasjon om barn med bare leppespalte (\kort{CLO}), da disse vanligvis opereres
+alt ved 3–4 måneders alder.
+
+<<brystmjolk, echo=kjeldekode>>=
+# Skal sjå på kor lenge barna får brystmjølk
+# (obs: tyder amming *eller* frå flaske, til tross for
+# variabelnamna som snakkar om «Breastfeeding», altså amming)
+
+# Ta utgangspunkt i leppelukkingsskjemaet
+d.amming=d.lglukk.akt
+
+# (Ser ut til at) dei som framleis ammar skal ha ammeveker sett til 0
+if(nrow(subset(d.amming, BreastfeedingToDay == 1 & BreastfeedWeeks!=0)) > 0)
+  stop("Gjev framleis brystmjølk, men har oppgitt ulik 0 veker amming")
+
+# Bruk siste oppføring for kvar person
+d.amming$sdato=as.Date(d.amming$RegistrationTime, format="%d.%m.%Y") # Skjemadato
+d.amming=arrange(d.amming, PasientId, -as.numeric(sdato))
+d.amming=d.amming[!duplicated(d.amming$PasientId),]
+
+# Rekn ut kor mange veker som har gått frå
+# fødsel til (siste) skjemaregistrering
+d.amming=transform(d.amming,
+                   regveker=as.numeric(difftime(sdato, fdato, units="days"))/7)
+
+# Variabel som viser siste observasjonspunkt for amming
+# (= BreastfeedWeeks for dei som er registrert som slutta med amming)
+d.amming$sisteobs=d.amming$BreastfeedWeeks
+d.amming=within(d.amming, {
+   sisteobs[BreastfeedingToDay==1]=regveker[BreastfeedingToDay==1]
+})
+
+# Legg til info om spaltetype
+d.amming=join(d.amming, spalteinfo, by="PasientId", type="left")
+
+# Slå saman UCLP og BCLP (sidan det er så få BCLP)
+d.amming$spaltetype=recode(d.amming$spaltetype, 'c("UCLP","BCLP")="CLP"')
+
+# Fjern dei me manglar informasjon spaltetype på
+d.amming=subset(d.amming, !is.na(spaltetype))
+
+# Fjern også dei med «annen» spaltetype (av anonymitetsomsyn,
+# og fordi me har så lite data)
+d.amming=subset(d.amming, spaltetype!="Annen")
+
+# Lag Kaplan–Meier-estimat
+library(survival)
+l=survfit(Surv(sisteobs, !BreastfeedingToDay)~spaltetype, data=d.amming)
+
+# Lag til dataramme med nødvendig info for plotting
+l$gruppe=gsub(".*=","", rep(names(l$strata), l$strata))
+d.ammeplott=with(l, data.frame(time, surv, gruppe))
+
+# Legg til estimat for tidspunkt 0, om det ikkje finst frå før
+# (nødvendig for fint plott)
+fiks0=function(dat) {
+  if(dat$time[1]!=0) {
+    dat=rbind(dat[1,], dat)
+    dat[1,c("time","surv")]=c(0,1)
+  }
+  dat
+}
+d.ammeplott=ddply(d.ammeplott, .(gruppe), fiks0)
+d.ammeplott$surv=100*d.ammeplott$surv # Vis overleving i prosent
+
+# Lag plass til spaltetype-indikatortekst
+xgrenser=expand_range(range(d.ammeplott$time), .01)
+xgrenser[1]=-diff(range(d.ammeplott$time))/20
+
+# Lag Kaplan–Meier-plott
+d.ammeplott$gruppe=factor(d.ammeplott$gruppe, levels=spaltetype.hgrupper) # Meir fornuftig nivårekkjefølgje
+ammeplott=qplot(time, surv, data=d.ammeplott, colour=gruppe, geom="step") + tema +
+  scale_x_continuous(limits=xgrenser, breaks=function(lims) seq(0, lims[2], 10), minor_breaks=NULL) +
+  scale_y_continuous(breaks=seq(0,100,20), limits=c(0,100)) +
+  scale_colour_brewer("Spaltetype", palette="Set2") +
+  xlab("Tid etter fødsel / uker") +
+  ylab("Prosent barn\nsom fremdeles\nfår brystmelk-\nernæring")
+
+# Marker sensureringstidspunkta
+sens=l$n.censor>0
+xsen=l$time[sens]
+ysen=100*l$surv[sens]
+d.ammesens=data.frame(xsen,ysen)
+ammeplott = ammeplott + geom_segment(aes(x=xsen, xend=xsen, y=ysen-2, yend=ysen+2),
+                                     data=d.ammesens, col="black", size=.25)
+
+# Lag klar figurtekst
+ammeplott_figurtekst=paste0("Hvor lenge barn født i ",
+                            fødselsår, " fikk brystmelk\\-ernæring (amming eller morsmelk fra flaske).
+                            Figuren viser et Kaplan–Meier-plott, og de svarte strekene
+                            er tilfeller der mor oppgav at barnet fremdeles fikk
+                            brystmelkernæring ved tidspunkt for utfylling av spørreskjemaet.
+                            Figuren fremstiller data fra ", nrow(d.amming), " pasienter.")
+@
+
+<<ammeplott, echo=kjeldekode, fig.height=3.3, fig.cap=ammeplott_figurtekst>>=
+# Marker spaltetype på plottet
+library(directlabels)
+etikettpos=label.endpoints(min, 1.1)
+direct.label(ammeplott, method=etikettpos)
+@
+
+
+\section{Pasienterfaringer}\label{sec:pasienterfaringer}
+
+Ved utskrivingen fra sykehuset fyller pårørende ut et skjema der
+de blant annet beskriver deres opplevelse av
+informasjonen som ble dem gitt før operasjon og av smertebehandlingen som
+ble gitt til barnet i forbindelse med operasjonen.
+
+På spørsmålet
+«Hvordan opplever du/dere informasjonen dere fikk før operasjonen
+av de ansatte på sykehuset?» svarer
+\Sexpr{round(100*mean(d.ut.akt$InformationBeforeOperation %in% 4:5))}\prosent
+«God» eller «Svært god». På spørsmålet «Hvordan opplever du/dere
+smertebehandlingen som barnet har fått i forbindelse med operasjonen?» svarer
+\Sexpr{round(100*mean(d.ut.akt$PainTherapyAfterOperation %in% 4:5))}\prosent
+«God» eller «Svært god». Se detaljer i \vref{fig:promgraf}. Behandlings\-teamenes målsetning
+er at 100\prosent skal svare «God» eller «Svært god» på begge disse spørsmålene.
+
+<<promsdata, echo=kjeldekode>>=
+# Informasjon om kor fornøgd pårørande er med
+# informasjon og smertebehandling
+
+# Legg først til forklarande tekst på variabelverdiane
+nivå=c("Svært dårlig", "Dårlig", "Middels", "God", "Svært god")
+d.proms=transform(d.ut.akt,
+                   smerte=factor(PainTherapyAfterOperation, levels=1:5,
+                       labels=nivå),
+                   info=factor(d.ut.akt$InformationBeforeOperation, levels=1:5,
+                       labels=nivå))
+d.proms$plass=plassar$plass[match(d.proms$ReshId, plassar$ReshId)]
+
+# Må restrukturera dataa litt for å få dei
+# på formatet likert()-funksjonen føretrekker
+d.proms.lang = melt(d.proms, id.vars=c("PasientId","plass"), measure.vars=c("smerte","info"),
+        variable.name="spørsmål", value.name="vurdering")
+d.proms.lang$vurdering=factor(d.proms.lang$vurdering, levels=nivå) # Pass på at alle nivå vert med
+d.proms.likert = dcast(d.proms.lang, spørsmål+plass~vurdering, drop=FALSE,
+                       fun.aggregate=length, value.var="vurdering")
+d.proms.likert=d.proms.likert[c(nivå, "spørsmål", "plass")] # likert()-funksjonen likar denne variabelrekkefølgja …
+
+# Endra rekkjefølgja på spørsmåla, og legg til forklarande tekst
+d.proms.likert$spørsmål=factor(d.proms.likert$spørsmål,
+                                  levels=c("info","smerte"),
+                                  labels=c("Opplevelse av informasjon før operasjon",
+                                           "Opplevelse av barnets smertebehandling i forbindelse med operasjon"))
+
+# Lag likert-graf
+library(HH)
+# Stolpar som viser prosentverdiar
+promgraf.prosent = likert(plass ~ . | spørsmål, data=d.proms.likert, layout=c(1,2),
+                  xlab="Prosent", ylab=NULL, main=NULL, between=list(y=1.5),
+                  as.percent=TRUE, ylab.right="Antall svar")
+
+# Stolpar som viser absoluttal
+promgraf.tal = likert(plass ~ . | spørsmål, data=d.proms.likert, layout=c(1,2),
+                  xlab="Antall svar", ylab=NULL, main=NULL, between=list(y=1.5))
+
+# Pynt litt på grafen
+ltema = col.whitebg()
+ltema$strip.border=list(col="#ffccaa") # Blir for stygt med dei offisielle fargane her …
+ltema$axis.line=list(col="#e6e6e6")
+ltema$add.text=list(col="#333333")
+ltema$axis.text=list(col="#666666")
+stripetema=strip.custom(par.strip.text=list(col="#aa4400"))
+promgraf=update(promgraf.tal, par.settings=ltema, strip=stripetema)
+
+# Reduser marg (basert på kode frå https://stat.ethz.ch/pipermail/r-help/2007-January/123556.html)
+litenmarg = list(layout.heights =
+                  list(top.padding = 0, main.key.padding = 0, key.axis.padding = 0,
+                       axis.xlab.padding = 0, xlab.key.padding = 0, key.sub.padding = 0,
+                       bottom.padding = .5),
+                 layout.widths =
+                   list(left.padding = 0, key.ylab.padding = 0, ylab.axis.padding = 0,
+                        axis.key.padding = 0, right.padding = 0))
+promgraf = update(promgraf, par.settings=litenmarg)
+
+# Lag klar figurtekst
+promgraf.figurtekst=paste0("Pårørendes opplevelse av informasjon gitt før operasjon og
+                          smertebehandling i forbindelse med operasjon.
+                          Figuren fremstiller data fra til sammen ", nrow(d.proms), " sykehusopphold (",
+                          length(unique(d.proms$PasientId)), " pasienter).")
+@
+
+<<promgraf, echo=kjeldekode, fig.cap=promgraf.figurtekst, fig.height=3.5>>=
+promgraf
+@
+
+
+\chapter{Metoder for fangst av data}\label{cha:metoder}
+
+\section{Dataleverandører}
+
+Behandlingsteamene ved de plastikk\dbind kirurgiske avdelingene ved Haukeland
+universitetssjukehus og ved Oslo universitetssykehus har nært samarbeid
+med flere faggrupper. De seks som er mest sentrale i behandlingen er
+plastikk\dbind kirurger, logopeder, øre-nese-hals-leger, sykepleiere,
+kjeveortopeder og psykologer. Alle disse faggruppene leverer data
+til registeret.
+
+Deltagende institusjoner ved behandlingsteamet i Oslo er
+
+\begin{itemize}
+\item Oslo universitetssykehus
+\item Statped sørøst
+\end{itemize}
+
+og ved behandlingsteamet i Bergen
+
+\begin{itemize}
+\item Haukeland universitetssjukehus
+\item Statped vest
+\item Senter for leppe-kjeve-ganespalte ved Tannhelsens kompetansesenter Vest~\kort{(TKV)}, Hordaland fylkeskommune
+\end{itemize}
+
+
+\section{Innregistrering}
+
+Registeret benytter et webbasert registreringssystem, Medisinsk
+registreringssystem~\kort{(MRS)}, og har invitert alle som er
+henvist til kirurgisk \kort{LKG}-behandling i Norge og som er født etter
+31.12.2010 om å delta i registeret.
+
+Ved oppstart 1.~januar 2011 ble registreringene ved sykepleier og plastikkirurg kun gjort på papirskjema.
+Elektronisk registrering var tilgjengelig ved de to sykehusene fra
+september 2011.
+
+Logopedene ved Statped skal begynne datainnsamling for 4-åringer (født 2011) fra og med januar~2015.
+Kjeveortopedene skal begynne datainnsamling for 6-åringer (født 2011) fra og med januar~2017.
+Øre-nese-hals-legene skal begynne datainnsamling for 6-åringer (født 2011) fra og med januar~2017.
+Psykologene skal begynne datainnsamling for 10-åringer (født 2011) fra og med januar~2021.
+
+Hordaland fylkeskommune med Senter for leppe-kjeve-gane\-spalte
+ved Tannhelsens kompetansesenter Vest \kort{(TKS)} fikk tilgang til elektronisk
+registrering (Norsk Helsenett) mai 2013, mens Statped-institusjonene fremdeles ikke har
+tilgang til Norsk Helsenett.
+
+\section{Teknisk utvikling og drift}
+Registeret blir driftet av Helse Vest~\kort{IKT}. Helse Vest~\kort{IKT}
+bruker under\-leverandørene \kort{HEMIT} (til utvikling av teknisk løsning for
+kvalitetsregister) og Helse Nord~\kort{IKT} (til drift av teknisk løsning
+for kvalitetsregister).
+
+\section{Risikovurdering}
+Oppdatert risikovurdering foreligger for \kort{MRS} i henhold til retningslinjer
+fra Det nasjonale servicemiljøet for medisinske kvalitetsregistre og Regionalt
+servicemiljø Helse Vest.
+
+\section{Registertilgang}
+Helse Nord \kort{IKT} ivaretar tilgangsstyringen for \kort{MRS}-løsningen gjennom
+drifting av \href{https://helseregister.no/}{helseregister.no}, og
+styringsgruppen for registeret ivaretar tilgangsstyring for data til analyseformål. 
+
+Hver institusjon har tilgang til \kort{MRS}-løsningen definert etter fem roller:
+behandler, leser, pasientansvarlig, registeransvarlig og brukeradministrator.
+I tillegg har daglig leder~/ koordinator tilgang som \emph{brukeradministrator} for alle
+institusjonene. Systemansvarlig ved Helse Vest~\kort{IKT} har rollen som \emph{systemadministrator} (se driftsmanualen for~\kort{MRS}).
+
+Opplysningene i \kort{LKG}-registeret lagres i avidentifisert form
+(skilt fra navn og fødselsnummer). Enhetene som registrerer
+data har kun tilgang til egne data.
+
+\section{Logging og backup}
+Både Helse Nord \kort{IKT} og Helse Vest~\kort{IKT} har utarbeidet rutiner for logging
+og backup for henholdsvis \kort{MRS}-løsningen sentralt og for
+registerets resultatfiler til analyseformål. 
+
+
+\chapter{Metodisk kvalitet}\label{cha:kva}
+\section{Antall registreringer}\label{sec:reg}
+
+<<operasjonsstad, echo=kjeldekode>>=
+d.alleop.akt$op_stad=plassar$plass[match(d.alleop.akt$ReshId, plassar$ReshId)]
+@
+
+Per \Sexpr{format(dato_uttrekk, format="%d.%m.%Y")}
+er det registrert \Sexpr{n.pasientar} pasienter født \Sexpr{fødselsår}
+i registeret (i ett eller flere skjema).
+Det er registrert til sammen
+\Sexpr{nrow(d.alleop.akt)} operasjoner på disse,
+\Sexpr{sum(d.alleop.akt$op_stad=="Oslo")} i Oslo og
+\Sexpr{sum(d.alleop.akt$op_stad=="Bergen")} i Bergen.
+
+\section{Metode for beregning av dekningsgrad}\label{sec:met}
+
+\subsection{Medisinsk fødselsregister}
+
+Medisinsk fødselsregister \kort{(MFR)} registrerer alle medfødte misdannelser ved
+fødsel\footnote{Se tabell \kort{M}1 på \url{http://mfr-nesstar.uib.no/mfr/}.}.
+Ved å sammenligne antall pasienter registrert med leppe- og/eller ganespalte
+i \kort{MFR} med antall pasienter i \kort{LKG}-registeret får
+vi tallfestet hvor mange av de som er født med \kort{LKG} som blir
+operert og inkludert i registeret.
+
+\subsection{Norsk pasientregister}
+
+Helsedirektoratet har gitt dispensasjon fra taushetsplikten for å kunne beregne
+registerets dekningsgrad ved sammenstilling av data fra \kort{LKG}-registeret
+og Norsk pasientregister \kort{(NPR)}\footnote{Søknad sendt 01.07.2013.
+Hos Helsedirektoratet: \href{https://oep.no/search/resultSingle.html?journalPostId=7487919}{sak~13/5866, dokument~1}.
+Svar mottatt 04.02.2014. Hos Helsedirektoratet: \href{https://oep.no/search/resultSingle.html?journalPostId=10227933}{sak~2013/5866, dokument~4}.}.
+
+Norsk pasientregister skal gjennomføre
+koblingen av data. Juridiske vurderinger, logistikk og kvalitetssikring for
+koblingen vil skje i henhold til \kort{NPR}s vanlige rutiner, mens \kort{LKG}-registeret
+har ansvar for å utarbeide rutiner og registerspesifikke maler for sammenstilling og analyse.
+Vi regner med å starte dette arbeidet våren~2015.
+
+Kobling mot \kort{NPR} vil kunne vise om det gjøres \kort{LKG}-operasjoner
+ved andre sykehus enn \kort{HUS} og \kort{OUS}. Den vil også vise om alle
+\kort{LKG}-operasjoner som er utført på barn født etter 31.12.2010 ved
+\kort{OUS} og \kort{HUS} er registrert.
+
+\section{Dekningsgrad på institusjonsnivå}\label{sec:endek}
+Helsemyndighetene har sentralisert den kirugiske behandlingen av
+pasienter med leppe-kjeve-ganespalte til Oslo universitetssykehus og Haukeland
+universitetssjukehus. Kvalitetsregisteret mottar data fra begge disse sykehusene,
+og dekningsgraden på institusjonsnivå er således 100\prosent.
+
+
+\section{Dekningsgrad på individnivå}\label{sec:obs}
+
+<<personinfo, echo=kjeldekode, results='hide'>>=
+# Skal laga litt samandraginformasjon om kvar person,
+# førbels berre kor personen vart behandla og når
+# vedkommande vart fødd
+pvar=c("PasientId", "ReshId", "BirthDate") # Aktuelle personvariablar
+personinfo=rbind(d.inn[pvar], d.alleop[pvar], d.lglukk[pvar], d.ut[pvar])
+
+# Legg til info om behandlingsstad
+personinfo$plass=plassar$plass[match(personinfo$ReshId, plassar$ReshId)]
+personinfo=ddply(personinfo, .(PasientId, BirthDate), summarise,
+                     plass=paste(unique(sort(plass)), collapse=" og "))
+personinfo$år=year(as.Date(personinfo$BirthDate, format="%d.%m.%Y"))
+
+# Sjå på personinfo for pasientar født det aktuelle året
+personinfo.akt=subset(personinfo, år==fødselsår)
+
+# Lag oversikt over kor dei var innlagt
+plass.stat=ddply(personinfo.akt, .(plass), summarise, registrert=length(plass))
+
+# Kor mange vart inkludert i registeret (minst eitt skjema)
+n.inkludert=sum(plass.stat$registrert)
+@
+
+<<inklusjonsgrad_ind, echo=kjeldekode, results='hide'>>=
+# Hent inn samtykkeinformasjon for det aktuelle året
+samtykke.akt = subset(samtykke, år==fødselsår)
+
+# Rekn ut dekningsgrad, dvs. kor mange som er registrert på
+# minst eitt skjema i forhold til kor mange som vart invitert
+inklusjonsgrad=merge(samtykke.akt, plass.stat, all=TRUE)
+@
+
+Det ble invitert \Sexpr{sum(inklusjonsgrad$invitert)} pasienter
+født \Sexpr{fødselsår} til deltagelse i registeret. Foreldrene til
+\Sexpr{with(inklusjonsgrad, ifelse(sum(invitert)==sum(samtykka), "alle", paste(sum(samtykka), "av")))}
+disse samtykket til inklusjon, og \Sexpr{sum(inklusjonsgrad$registrert)}
+pasienter er registrert i minst ett skjema. Inklusjonsgraden blir dermed
+\Sexpr{n.inkludert}/\Sexpr{sum(inklusjonsgrad$invitert)}\;=\;%
+\Sexpr{round(100*n.inkludert/sum(inklusjonsgrad$invitert))}\prosent%
+\footnote{Registeret mangler data på én pasient som har samtykket,
+fordi barnet av medisinske grunner foreløpig ikke er operert.}.% FIXME: Ta ut denne for andre år
+Se \vref{tab:inklusjonsgradind} for fordeling på sykehusnivå.
+
+<<inklusjonsgrad_ind_form, echo=kjeldekode, results='asis'>>=
+inklusjonsgrad.form=with(inklusjonsgrad,
+                  data.frame(Sykehus=plass, Invitert=invitert, Samtykket=samtykka,
+                             Registrert=registrert,
+                             Inklusjonsgrad=paste0(round(100*registrert/invitert), "\\prosent")))
+
+# Formater som LaTeX-tabell
+latex(inklusjonsgrad.form, file="", center="centering",
+      caption=paste0("Inklusjonsgrad på sykehusnivå for pasienter født ",fødselsår,
+                     ". Inklusjonssgraden viser hvor stor andel av de inviterte ",
+                     "som faktisk ble inkludert registeret (i \\emph{minst ett} skjema)."),
+      label="tab:inklusjonsgradind",
+      collabel.just=c("l", rep("r", ncol(inklusjonsgrad)-1)),
+      col.just=c("l", rep("r", ncol(inklusjonsgrad)-1)),
+      rowlabel=NULL, rowname=NULL, where="htbp", booktabs=TRUE, numeric.dollar=FALSE)
+@
+
+
+<<dekningssgrad_ind, echo=kjeldekode, results='hide'>>=
+# Hent inn informasjon frå MFR for det aktuelle året
+mfr_fdata.akt = subset(mfr_fdata, år==fødselsår)
+
+# Lag oversikt over LKG-data frå MFR-registeret
+mfr_varnamn=c("Leppespalte, evt. med ganespalte, Antall", "Isolert ganespalte, Antall")
+if(!all(mfr_varnamn %in% mfr_fdata.akt$MMType)) {
+  stop("Manglar data frå MFR-registeret for det aktuelle året")
+}
+  
+mfr_fdata_lkg_akt=data.frame(MMType=c("Leppespalte (ev. med ganespalte)", "Isolert ganespalte"),
+                             Levendefødte=c(
+mfr_fdata.akt$levandefødt[mfr_fdata.akt$MMType==mfr_varnamn[1]],
+mfr_fdata.akt$levandefødt[mfr_fdata.akt$MMType==mfr_varnamn[2]]))
+mfr_fdata_lkg_akt=rbind(mfr_fdata_lkg_akt, data.frame(MMType="Totalt", Levendefødte=sum(mfr_fdata_lkg_akt$Levendefødte)))
+
+# Kor mange vart levandefødt med LKG-spalte, ifølgje MFR?
+n.lkgfødt=mfr_fdata_lkg_akt$Levendefødte[3]
+@
+
+
+For barn født \Sexpr{fødselsår} er det (per \Sexpr{mfr_dato_form}) registrert
+\Sexpr{mfr_fdata_lkg_akt$Levendefødte[3]} levendefødte med leppe- og/eller
+ganespalte i Medisinsk fødselsregister (se~\vref{tab:dekningsgradind}). En ville forvente at alle disse
+ble henvist til behandling. Med utgangspunkt i dette blir dekningsgraden for \kort{LKG-registeret} på
+\Sexpr{n.inkludert}/\Sexpr{n.lkgfødt}, eller
+\Sexpr{round(100*n.inkludert/n.lkgfødt)}\prosent.
+<<echo=FALSE, results='asis'>>=
+if(n.inkludert > n.lkgfødt) {
+  cat("At det er flere inkludert i registeret enn det ifølge \\kort{MFR} er som er født
+      med leppe-kjeve-ganespalte tyder på at \\kort{MFR} på dette området er
+      mangelfull, og mindre egnet til dekningsgradsanalyse\\footnote{Andre grunner
+      til mangel på samsvar mellom \\kort{LKG}-registeret og \\kort{MFR} kan
+      være barn med leppe-kjeve-ganespalte som først kommer til
+      Norge etter fødselen, og som dermed ikke er inkludert i \\kort{MFR}.}.")
+}
+@
+
+
+<<dekningsgrad_ind_form, echo=kjeldekode, results='asis'>>=
+# Formater som LaTeX-tabell
+latex(mfr_fdata_lkg_akt, file="", center="centering",
+      caption=paste0("Antall levendefødte i ",fødselsår, " med leppe-kjeve-ganespalte
+                     ifølge Medisinsk fødselsregister. Tallene er hentet ut fra registeret ",
+                     mfr_dato_form, "."),
+      colheads=c("Type misdannelse", "Levendefødte"),
+      label="tab:dekningsgradind",
+      collabel.just=c("l","r"),
+      col.just=c("l", "r"),
+      rowlabel=NULL, rowname=NULL, where="htbp", booktabs=TRUE, numeric.dollar=FALSE)
+@
+
+\section{Metoder for intern sikring av datakvalitet}\label{sec:sik}
+
+Begge behandlingsteamene har én person i hver av de seks fag\-gruppene som er
+\emph{registeransvarlig}, og som skal ha overoppsyn med registreringsarbeidet.
+Denne personen har ansvar for å følge opp at registreringene av årskullene
+blir komplett, og at alle variablene i skjemaene besvares.
+
+Registeradministrasjonen gir tilgang til og opplæring i pålogging og registrering
+til faggruppene ved \kort{OUS}, \kort{HUS}, Statped og \kort{TKV}.
+Ved behov reiser registeradministrasjonen ut til deltagende institusjoner
+for nærmere oppfølging. Registeradministrasjonen informerer regelmessig på behandlingsteamenes
+møter i både Oslo og Bergen, for å opprettholde motivasjon til å innhente
+samtykker og oppnå komplett registrering. Dette er også
+sentrale tema på samarbeidsmøtet mellom
+teamene, NorCleft, som avholdes hvert halvannet år på Geilo.
+
+
+\section{Metode for validering av data i registeret}\label{sec:metval}
+
+\section{Vurdering av datakvalitet}\label{sec:valdat}
+Arbeidet med årsrapporten har avdekket at noen skjema er blitt registrert
+flere ganger på samme pasient (for eksempel sykepleieskjemaet «Første innleggelse»).
+Det har også manglet noen skjemaer/registreringer på flere pasienter. For pasienter
+som mangler plastikkirurgens operasjonsskjema «Alle operasjoner» har
+vi ikke informasjon om spaltediagnosen, som er nødvendig i mange av analysene i
+rapporten. Datasettene er komplettert under arbeidet med årsrapporten,
+men noen registreringsskjema mangler fremdeles.
+
+Alle pasienter skal ha plastikkirurgens skjema «Alle operasjoner» fra hver
+operasjon, et sykepleieskjema «Første innleggelse» for hver pasient,
+med bakgrunnsopplysninger om barnet og familien, og sykepleierskjemaet
+«Alle utskrivelser» fra hver operasjon. Se \vref{tab:skjemaoversikt}
+for oversikt hvor mange pasienter som har de ulike skjemaene registrert
+i registeret.
+
+% FIXME: Ta med skjema for talet på operasjonar (ikkje pasientar) også?
+% Og fordel på Oslo og Bergen.
+
+<<komplettheit, echo=kjeldekode, results='asis'>>=
+# Statistikk på pasientdekning i dei ulike skjema
+kol=c("PasientId", "SkjemaID")
+idstat=unique(rbind(d.inn.akt[kol], d.alleop.akt[kol], d.lglukk.akt[kol], d.ut.akt[kol]))
+idstat$SkjemaNamn=factor(idstat$SkjemaID, levels=c(6,3,7,8),
+                         labels=c("Første\n innlegging", "Alle\n operasjoner",
+                                  "Leppe- og\n ganelukking", "Alle\n utskrivelser"))
+
+# For kvar pasient, kva skjema er fylt ut
+idstat_sum=dcast(idstat, PasientId~SkjemaNamn, fun.aggregate=function(x) length(x)>0, value.var="SkjemaNamn")
+
+# Frekvensoversikt over skjemautfyllingskombinasjonar
+idstat_sum=count(idstat_sum[,-1])
+
+# Sorter etter talet på skjema fylt ut
+idstat_sum=idstat_sum[order(-rowSums(idstat_sum[,-ncol(idstat_sum)])),]
+
+# Formater med avkryssingsmerke eller strek for utfylt / ikkje utfylt
+idstat_sum[,-ncol(idstat_sum)]=lapply(idstat_sum[,-ncol(idstat_sum)], function(x) ifelse(x, "\\sjekk", "–"))
+
+# Sorter etter frekvens
+idstat_sum=arrange(idstat_sum, desc(freq))
+
+# Formater som LaTeX-tabell
+latex(idstat_sum, file="", center="centering",
+      caption="Oversikt over hvor mange pasienter det er registrert ulike kombinasjoner av skjema på.",
+      label="tab:skjemaoversikt",
+      rowlabel=NULL,
+      collabel.just=c(rep("l",ncol(idstat_sum)-1), "r"),
+      rowname=NULL, extracolsize="", where="htbp", booktabs=TRUE,
+      double.slash=FALSE, colheads=c(levels(idstat$SkjemaNamn), "Antall"), numeric.dollar=FALSE)
+@
+
+
+\chapter{Fagutvikling og klinisk kvalitetsforbedring}\label{cha:fag}
+
+\section{Registerets spesifikke kvalitetsmål}\label{sec:regspe}
+
+Register tar siktemål på å følge barnets utvikling til voksen alder.
+Dette omfatter:
+
+\begin{itemize}
+\item	Tale
+\item	Hørsel
+\item	Tenner og bitt
+\item	Ansiktstrekk og -symmetri
+\item	Generell trivsel 
+\item	Pårørendes tilfredshet med behandlingen
+\item	Evaluere om behandlingstilbudene når like godt ut i alle helseregioner
+\end{itemize}
+
+Registeret startet med inklusjon av barn født etter 31.12.2010. Evaluering og registrering
+av tale, hørsel, tenner, bitt, ansiktstrekk og ansiktssymmetri er først gjennomførbare
+når barnet er 4–6 år. Foreløpig er derfor målbare kvalitetsmål i registeret begrenset.
+I denne årsrapporten for 2013 presenteres disse kvalitetsmålene:
+
+\begin{itemize}
+\item Tid til operasjon (\vref{sec:tidtilop})
+\item Diagnose ved ultralyd (\vref{sec:ultralyd})
+\item Brystmelkernæring (\vref{sec:brystmelk})
+\item Foreldrenes opplevelse av informasjon og smertebehandling (\vref{sec:pasienterfaringer})
+\end{itemize}
+
+\section{Pasientrapporterte resultat- og erfaringsmål (\texorpdfstring{\kort{PROM}}{PROM} og \texorpdfstring{\kort{PREM}}{PREM})}\label{sec:pasutk}
+
+Følgende informasjon om foreldrenes erfaring med barnets
+sykehusopphold blir registrert ved utskrivelse fra sykehuset:
+\begin{itemize}
+\item Foreldrenes opplevelse av informasjon gitt før operasjonen.
+\item Foreldrenes opplevelse av smertebehandling gitt i forbindelse med operasjonen.
+\end{itemize}
+
+
+\section{Sosiale og demografiske ulikheter i helse}\label{sec:sosdem}
+
+\Vref{fig:ultralydkart} viser hvor i landet
+pasientene bor og om en har fått stilt \kort{LKG}-diagnosen hos fosteret ved
+prenatal ultralydundersøkelse.
+Registeret har lagt opp til at opplysninger om sosiale og demografiske
+forhold skal innhentes ved kobling til andre nasjonale registre i egne
+forsknings- og kvalitetsforbedringsprosjekter. Pasientgruppen blir
+informert om dette i samtykkeskrivet. Slike prosjekter må utføres etter
+gjeldene forskrifter, også med en eventuell kontrollgruppe.
+
+
+\section{Bidrag til utvikling av nasjonale retningslinjer, nasjonale
+kvalitetsindikatorer o.l.}\label{sec:retut}
+Registeret styrker samarbeidet mellom de to behandlingsteamene i Norge.
+Etableringen av registeret har fått fram noen ulike behandlingsrutiner
+i teamene (for eksempel metode for mating første postoperative dag).
+
+Med resultater fra registeret vil en etter hvert kunne sammenligne ulike
+behandlingsrutiner i de to teamene. Men fordi dette er en liten
+pasientgruppe med cirka 100 nye pasienter årlig, med ulike
+spaltetyper og operasjonsprosedyrer,
+må man samle data fra 5–10 årskull før dataene kan analyseres.  
+
+
+\section{Etterlevelse av nasjonale retningslinjer}\label{sec:retbru}
+De to behandlingsteamene har sammen utarbeidet behandlings\-plan/retningslinjer
+for \kort{LKG-spalte}. Vi viser for øvrig til Sosial- og helsedirektoratets
+rapport «Tilbudet til pasienter med leppe-kjeve-ganespalte, herunder
+velocardiofacialt syndrom~– faglig gjennomgang»%
+\footnote{\url{http://helsedirektoratet.no/publikasjoner/tilbudet-til-pasienter-med-leppe-kjeve-ganespalte-herunder-velocardiofacialt-syndrom-faglig-gjennomgang/Publikasjoner/pasienter-med-leppe-kjeve-ganespalte.pdf}} fra 2007.
+Denne rapporten la grunnlaget for opprettelsen av \kort{LKG}-registeret.
+
+
+\section{Identifisering av kliniske forbedringsområder}\label{sec:ide}
+Det er ønskelig at \emph{alle} familiene føler seg godt ivaretatt under
+sykehusinnleggelsene. Registeret samler derfor informasjon fra foreldrene
+ved utskrivelsen fra sykehuset, og resultatene viser at begge
+behandlingsteam har et forbedringspotensial når det gjelder
+informasjonen som blir gitt før operasjon og
+smertebehandlingen til barna i forbindelse med operasjonen.
+
+\section{Tiltak for klinisk kvalitetsforbedring initiert av
+registeret}\label{sec:brures}
+
+Tiltak som initereres av arbeidet med årsrapporten for 2013:
+
+\begin{itemize}
+\item Oslo universitetssykehus må få bedre rutiner for innhenting og registrering av data.
+\item Statped-intitusjonene må bli tilknyttet Norsk Helsenett for at logopedene skal
+      kunne levere data fra og med 1.~januar 2015 (for 4-åringer født i 2011).
+\item Nytt registreringssystem er planlagt innført i 2015. Dette bør gi
+      bedre datakvalitet.
+\item Det må bli mer bruk av data i forskning- og kvalitetssikringsprosjekt.
+      Faggruppene må oppmuntres til å ta i bruk data fra registeret.
+\item Begge behandlingsteamene vil bli oppfordret til å gå gjennom sine
+      rutiner for informasjonen og smertebehandlingen som blir
+      gitt under sykehusoppholdet. Dette vil bli tatt opp
+      som tema for diskusjon ved neste NorCleft-møte (våren~2015).
+\end{itemize}
+  
+\section{Evaluering av tiltak for klinisk kvalitetsforbedring (endret praksis)}\label{sec:evakva}
+
+Disse tiltakene for klinisk kvalitetsforbedring som ble iverksatt på bakgrunn av arbeidet med årsrapporten for 2012:
+
+\subsection{Prenatal diagnostikk }
+
+Data fra \kort{LKG}-registeret viser at omlag halvparten av
+foreldrene til barn født i \Sexpr{fødselsår} med leppe-kjeve-ganespalte
+fikk informasjon om diagnosen ved ultralydundersøkelse i svangerskapet.
+Dette har gitt behandlingsteamene bakgrunnskunnskap for planleggingen
+av et tilbud til gravide om oppfølging i svangerskapet.
+
+\subsection{Brystmelkernæring}
+
+Data fra \kort{LKG}-registeret viser at en spalte har betydning for mating
+av barnet~– både i ukene etter fødselen og etter operasjonene i første leveår.
+Foreldre til barn født med ganespalte rapporterer om flere utfordringer
+knyttet til mating enn foreldre til barn med leppespalte. Barn med ganespalte
+får mindre morsmelk (målt i antall uker), og strever mer med spisingen etter
+operasjonene enn barn med leppespalte.
+
+Behandlingsteamene har blitt mer aktive med å la foreldre og helsepersonell
+utveksle kunnskap og erfaringer om matingen. Teamene arbeider med
+å utvikle lett tilgjengelig informasjon på Internett, og med å gi tettere
+oppfølging i barnets første leveuker og etter operasjonene.
+
+Teamet ved Oslo universitetssykehus leder an i arbeidet,
+og har en sykepleier som går ut i ph.d.-prosjekt for å arbeide
+videre med dette.
+
+
+\section{Pasientsikkerhet}\label{sec:kom}
+Registeret kan følge barnets utvikling fra fødsel til voksen alder.
+Gjennom systematisering av kliniske indikatorer
+kan vi fange opp komplikasjoner og uønskede hendelser så tidlig som mulig.
+
+% FIXME: Kor finn me dette i registeret?
+% d.alleop.akt$ReOperationWithin4WeekBleeding og d.alleop.akt$ReOperationWithin4WeekInfection
+Informasjon om reoperasjon på grunn av blødning, infeksjon eller utilfredsstillende
+tilheling etter operasjon blir samlet i registeret. Det er ikke registrert tilfeller
+av reoperasjon på grunn av blødning eller infeksjon for pasientene født \Sexpr{fødselsår}.
+
+Oppfølgingstiden er foreløpig for kort til at det kan gjøres en
+vurdering av tilheling etter operasjon. Eksempel på tilheling etter ganespalte\-operasjon
+er forekomsten av fistel (unaturlig åpning mellom munn og nese) i ganen.
+Om ganen er hel eller har en fistelåpning til nesen registreres av plastikkirug
+og øre-nese-hals-lege når barnet er 6~år. Ganens bevegelighet, funksjon og språk/uttale
+er også et mål for tilheling etter en ganeoperasjon, og dette måles
+og registreres av logopeden når barnet er 4~år.
+
+
+\chapter{Formidling av resultater}\label{cha:dat}
+
+\section{Resultater tilbake til deltakende fagmiljø}\label{sec:resfag}
+Alle institusjoner og helseforetak som leverer data til registeret kan etter
+søknad til styret få tilgang til data fra \kort{LKG}-registeret til
+kvalitetssikringsarbeid og forskning.  
+Registeret utarbeider
+
+\begin{itemize}
+\item Årlige rapporter tilbake til de virksomhetene som leverer data til registeret.
+\item Årlige rapporter til deltagende enheter/institusjoner om egen aktivitet.
+\end{itemize}
+
+Nasjonale data fra registeret presenteres på samarbeidsmøtet for behandlingsteamene,
+\emph{NorCleft}, (avholdes hvert halvannet år).
+
+
+\section{Resultater til administrasjon og ledelse}\label{sec:resled}
+Registeret utarbeider årlige rapporter om virksomheten via Fagsenter for medisinske registre ved \kort{HUS} til
+\begin{itemize}
+\item Helse Vest \kort{RHF} 
+\item	Administrerende direktør ved Helse Bergen~\kort{HF}
+\item Direktør ved Kirurgisk klinikk på \kort{HUS}
+\end{itemize}
+
+
+\section{Resultater til pasienter}\label{sec:respas}
+På registerets hjemmeside (\href{http://helse-bergen.no/lkg}{helse-bergen.no/lkg})
+publiseres vi informasjon fra registeret til pasientgruppen. Vi skriver også
+en årlig artikkel til pasientforeningens medlemsblad,
+\href{http://www.lgs.no/publikasjoner/medlemsbladet-dialog}{Dialog},
+og gir informasjon på foreningens medlemsmøter ved behov.
+
+
+\section{Offentliggjøring av resultater på institusjonsnivå}\label{sec:off}
+Styret for registeret skal godkjenne all offentliggjøring av informasjon.
+Det blir årlig offentliggjøring av resultater fra registeret via hjemmesiden
+til Nasjonalt servicemiljø for medisinske kvalitetsregistre.
+
+
+\chapter{Samarbeid og forskning}\label{cha:for}
+
+Registeradministrasjonen skal motivere til forsknings- og kvalitetsforbedringsprosjekter. 
+Styret oppmuntrer til samarbeidsprosjekter mellom institusjonene og behandlingsteamene.
+
+\begin{itemize}
+\item Styret skal godkjenne alle forskningsprosjekt. 
+\item  Datautlevering til samarbeidsprosjekt mellom institusjonene og behandlingsteamene blir prioritert.
+\end{itemize}
+
+
+Nytteeffekt:
+
+\begin{itemize}
+\item	Systematiserte data gir grunnlag for kvalitetsforbedring. 
+\item	Systematiserte data gir grunnlag for forskning. 
+\item	Interessen for å benytte data vil øke, også i et tverrfaglig perspektiv.
+\item	Tilgang på data kan føre til interesse for kvalitetsforbedring og forskning i andre miljøer.
+\item	Redgisteret kan gi verdifulle data for forskning på årsakssammenhenger. 
+\item	Data vil kunne gi verdifull informasjon til forebyggende arbeid.
+\end{itemize}
+
+
+\section{Samarbeid med andre helse- og kvalitetsregistre}\label{sec:samfag}
+Styret og \kort{REK} (Regional komité for medisinsk og helsefaglig forskningsetikk)
+har godkjent et forskningsprosjekt som kobler data fra \kort{LKG}-registeret
+og Medisinsk fødselsregister for å undersøke om utvidet bruk av prenatal
+diagnostikk har påvirket forekomsten av \kort{LKG}-spalte ved fødsel og avbrutte svangerskap.
+
+
+\section{Vitenskapelige arbeider}\label{sec:vitarb}
+
+Registeret ble presentert ved Nordisk kongress i plastikk\dbind kirurgi (juni 2014),
+med tanke på å etablere samarbeid med andre nordiske \kort{LKG}-registre. 
+
+Manuskript som presenterer Norsk kvalitetsregister for leppe-kjeve-ganespalte
+er klart for innsending til \emph{The Cleft Palate-Craniofacial Journal}:
+«Longterm outcome in children with cleft lip and palate»,
+Berg, E.; Matzen, M.; Vindenes, H.; Lie, R.T.; Haaland, Ø.; Feragen, K.B.; Sivertsen, Å.
+
+Registerstudien i Erik Bergs ph.d.-prosjekt ved Universitetet i Bergen.
+Studien delfinaniseres av \kort{LKG}-registeret og bygger på nasjonale
+kliniske data fra \kort{LKG}-behandlingen i Norge 1967–1992 koblet til
+nasjonale datakilder som beskriver pasientgruppens utdannelse,
+arbeidssituasjon og bruk av trygderettigheter.
+
+
+\part{Plan for forbedringstiltak}\label{par:for}
+\chapter{Momentliste}
+
+\section{Ny registreringsløsning}
+Registreringssystemet \kort{MRS} versjon 2.2 er under utarbeiding,
+og planlegges å settes i drift i løpet av 2015. 
+Den nye versjonen av \kort{MRS} skal sikre at samme skjema ikke fylles ut
+flere ganger i forbindelse med et sykehusopphold, og sikre at det
+ikke kan gjøres registreringer på en pasient som ikke har samtykket.
+Samtykket må være tilgjengelig for alle faggruppene i behandlingsteamet.
+Systemet vil også sende spørsmål tilbake ved lagring av data dersom
+et skjema ikke er fullstendig utfylt.
+
+\section{Automatiske kvalitetsrapporter}
+Når den nye versjonen av \kort{MRS} er i drift, vil det bli utarbeidet
+automatiske kvalitetsrapporter for å kontrollere den interne
+datakvaliteten i registeret. Feil og mangler oppdaget vil
+bli løpende rettet opp i så langt dette er mulig.
+
+\section{Dekningsgradsanalyse}
+Dekningsgradsanalyse ved kobling mot
+\kort{NPR} planlegges utført våren 2015.
+
+\section{Internasjonal kontakt}
+Det planlegges etablering av kontakt med et svensk \kort{LKG}-register, med besøk,
+våren 2015.
+
+\section{Ansvar for registrering}
+Ansvaret for komplett registrering må bli tillagt bestemte personer
+ved hver institusjon, og det må bli avsatt tilstrekkelig tid for
+dette arbeidet. Styret skal følge opp dette.
+
+
+\part{Stadievurdering}
+
+\chapter{Referanser til vurdering av stadium}
+
+{\raggedright\begin{longtable}{r>{\raggedright}p{5cm}lcc}
+  \caption
+  {Vurderingspunkter for stadium.} \\
+  \toprule
+  Nr & Beskrivelse & Kapittel & Ja & Nei \\ 	 
+  \midrule
+  \endfirsthead
+  \caption[]{\textit{… fortsettelse fra forrige side}}\\
+  \toprule
+  Nr & Beskrivelse & Kapittel & Ja & Nei \\
+  \midrule
+  \endhead
+  \\
+  \multicolumn{5}{r}{\textit{Tabellen fortsetter på neste side~…}} \\
+  \endfoot 	 
+  \bottomrule
+  \endlastfoot 	 	 
+   & \textbf{Stadium 2} & & \\
+  1 & Er i drift og samler data fra \kort{HF} i alle helseregioner & \ref{cha:res} & \sjekkja & \sjekknei \\
+  2 & Presenterer resultater på nasjonalt nivå & \ref{cha:res} & \sjekkja
+    & \sjekknei \\
+  3 & Har en konkret plan for gjennomføring av dekningsgradsanalyser
+    & \ref{sec:met} & \sjekkja & \sjekknei \\
+  4 & Har en konkret plan for gjennomføring av analyser og løpende
+      rapportering av resultater på sykehusnivå tilbake til deltakende
+      enheter & \ref{sec:resfag} & \sjekkja& \sjekknei \\
+      5 & Har en oppdatert plan for videre utvikling av registeret
+      & Del \ref{par:for} & \sjekkja& \sjekknei \\
+   & & & \\
+
+   & \textbf{Stadium 3} & & \\
+  6 & Kan redegjøre for registerets datakvalitet
+    & \ref{sec:sik}, \ref{sec:metval}, \ref{sec:valdat} & \sjekkja& \sjekknei \\
+  7 & Har beregnet dekningsgrad mot uavhengig datakilde
+    & \ref{sec:met}, \ref{sec:endek}, \ref{sec:obs} & \sjekkja& \sjekknei \\
+  8 & Registrerende enheter kan få utlevert egne aggregerte og nasjonale resultater
+    & \ref{sec:resfag} & \sjekkja & \sjekknei \\
+  9 & Presenterer deltakende enheters etterlevelse av de viktigste
+      nasjonale retningslinjer der disse finnes
+  & \ref{sec:retbru} & \sjekkja & \sjekknei \\
+  10 & Har identifisert kliniske forbedringsområder basert på analyser fra
+  registeret & \ref{sec:ide} & \sjekkja & \sjekknei \\
+  11 & Brukes til klinisk kvalitetsforbedringsarbeid
+    & \ref{sec:brures}, \ref{sec:evakva} & \sjekkja & \sjekknei \\
+  12 & Resultater anvendes vitenskapelig & \ref{sec:vitarb} & \sjekknei
+    & \sjekkja \\
+  13 & Presenterer resultater for \kort{PROM}/\kort{PREM} & \ref{sec:pasutk} & \sjekkja
+    & \sjekknei \\
+  14 & Har en oppdatert plan for videre utvikling av registeret
+    & Del \ref{par:for} & \sjekkja & \sjekknei \\
+   & & & \\
+
+   & \textbf{Stadium 4} & & \\
+  15 & Kan dokumentere registerets datakvalitet gjennom valideringsanalyser
+    & \ref{sec:valdat} & \sjekknei & \sjekkja \\
+  16 & Presenterer oppdatert dekningsgradsanalyse hvert 2.~år
+  & \ref{sec:met}, \ref{sec:endek}, \ref{sec:obs} & \sjekkja & \sjekknei \\
+  17 & Har dekningsgrad over 80\prosent & \ref{sec:obs} & \sjekkja & \sjekknei \\
+  18 & Registrerende enheter har løpende (on-line) tilgang til oppdaterte egne og
+  nasjonale resultater & \ref{sec:resfag}, \ref{sec:off} & \sjekknei & \sjekkja \\
+  19 & Presentere resultater på sosial ulikhet i helse & \ref{sec:sosdem}
+    & \sjekknei & \sjekkja \\
+  20 & Resultater fra registeret er tilpasset og tilgjengelig for pasienter
+    & \ref{sec:respas} & \sjekkja & \sjekknei \\
+  21 & Kunne dokumentere at registeret har ført til kvalitetsforbedring/endret klinisk
+  praksis & \ref{sec:evakva} & \sjekknei& \sjekkja
+  \label{tab:sta} 	 
+\end{longtable}}
+
+
+% \clearpage
+% <<rinfo>>=
+% sessionInfo()
+% @
+
+
+\cleartoverso
+\thispagestyle{empty}
+
+\subsection*{Kontakt og informasjon}
+
+\sffamily
+\textbf{Postadresse}\\
+Norsk kvalitetsregister for leppe-kjeve-ganespalte\\
+Kirurgisk klinikk\\
+Haukeland universitetssjukehus\\
+5021 Bergen
+
+\bigskip
+
+\noindent\begin{tabularx}{\textwidth}{@{}ll}
+\textbf{E-post} & \epost{lkg-registeret@helse-bergen.no} \\
+\textbf{Internett} & \url{http://www.helse-bergen.no/lkg} \\
+\textbf{Kontakttelefon} & 991\,20\,068 \\
+\textbf{Offentliggjøring} & \url{http://www.kvalitetsregistre.no/}
+\end{tabularx}
+
+\medskip
+\noindent\qrcode{http://helse-bergen.no/lkg}
+
+\end{document}
